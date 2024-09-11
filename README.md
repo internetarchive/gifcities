@@ -1,32 +1,24 @@
-Wayback Machine Site Search
-===========================
+# gifcities.org
 
-## Start Redis
+This repository has code for:
 
-```
-#on wbgrp-svc060
-sudo docker run --name gifcities -p 6379:6379 -d redis
-```
+- the (new) gifcities.org web app
+- tools for translating a large manifest of gifs into a form suitable for ingestion into ES
 
-On each app node, do the following:
-## Installation
+This code isn't much use on its own as it needs a running elasticsearch 8.15 host as well as access to s3 compatible storage full of gifs.
 
-```
-#git clone repo and then
-cd gifcities/
-cd /var/tmp/
-git clone git@git.archive.org:vinay/gifcities.git
-cd gifcities
-docker_image_tag=gifcities:backend
-sudo docker build -t $docker_image_tag .
-```
+It also needs access to the gif manifest which can be found on my dev machine (`~nsmith/gifcities-gifs.txt`).
 
-### Run backend service
+for local development I used docker:
 
 ```
-GIFINDEX=http://wwwb-search01.us.archive.org:9200/geocities-gifs/
-REDISHOST=wbgrp-svc060
-REDISPORT=6379
-sudo docker run -i -t -p 8091:8091 -v /var/tmp/gifcities:/var/tmp/gifcities/ -e GIFINDEX=$GIFINDEX -e REDISHOST=$REDISHOST -e REDISPORT=$REDISPORT  $docker_image_tag
-
+docker network create gifcities
+docker pull elasticsearch:8.15.0
+docker run --name es01 --net gifcities -p 9200:9200 -it -m 1GB docker.elastic.co/elasticsearch/elasticsearch:8.15.0
 ```
+
+seaweedfs hosted gifs are accessible (for now) via `blobs.fatcat.wiki/gifcities` using gif checksum as key.
+
+to run the web app locally: `make serve`.
+
+a venv will be created at `.venv` in the root of the repo.
