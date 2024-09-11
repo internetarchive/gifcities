@@ -1,6 +1,6 @@
 hi, I'm Nate, how are you?
 
-This directory is empty if you just cloned this project. The primary file you'll want in here is called `gifcities-gifs.txt` and as of 2024 September there was a copy at [http://nsmith-dev.us.archive.org/gifcities-gifs.txt](nsmith-dev).
+This directory is empty if you just cloned this project. The primary file you'll want in here is called `gifcities-gifs.txt` and as of 2024 September there was a copy on aitio (`~nsmith/gifcities-gifs.txt`).
 
 This file is the base manifest for the content at [https://gifcities.org](gifcities).
 
@@ -18,3 +18,5 @@ The rough flow for going from manifest->searchable (from the `transform` directo
 If you want to change the schema that goes into elasticsearch, edit `main.go` to output different stuff to `gifcities.jsonl`.
 
 Note that configuration for the index (ie, mapping) is in `ingest.sh`
+
+The `slowfetch.sh` script is for getting gifs from live wayback which was necessary for some straggling files.
