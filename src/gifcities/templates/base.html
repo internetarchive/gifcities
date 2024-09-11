@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  </head>
+  {% block head %}
+  <link rel="stylesheet" href="/static/stylesheet.css">
+  <title>{% block title %}{% endblock %}</title>
+  {% endblock %}
+  <body>
+    <div id="header">
+      <div class="ialogo">
+        <a href="https://archive.org">
+          <img src="/static/ia-logo.svg">
+        </a>
+      </div>
+      <span>
+        <a href="/">Home</a>
+      </span>
+      <span>
+        <a href="/about">About</a>
+      </span>
+      <span>
+        <a href="https://archive.org/donate">Donate</a>
+      </span>
+    </div>
+    <div id="content">
+      {% block content %}
+      {% endblock %}
+     </div>
+     <div id="footer">
+       <span>
+         <a href="https://github.com/internetarchive">code</a>
+       </span>
+     </div>
+  </body>
+</html>

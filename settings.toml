@@ -1,0 +1,14 @@
+[default]
+ELASTICSEARCH_URL = "http://es-ait-fts-01.us.archive.org:9200"
+ELASTICSEARCH_INDEX = "gifcities"
+DEBUG = false
+# TODO waiting on new subdomain
+BLOB_URL = "https://blobs.fatcat.wiki/gifcities"
+
+[test]
+
+[development]
+ELASTICSEARCH_URL = "http://localhost:9200"
+DEBUG = true
+
+[qa]

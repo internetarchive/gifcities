@@ -1,0 +1,121 @@
+h1 {
+  color: teal;
+  font-size: 300%;
+}
+
+h2 {
+  color: grey;
+}
+
+#header {
+  color: teal;
+}
+
+#header span {
+  margin-left: 4em;
+  margin-right: 4em;
+  font-size: 125%;
+  font-weight: bold;
+}
+
+#header a {
+  color: teal;
+  text-decoration: none;
+}
+
+#header a:hover {
+  color: teal;
+  text-decoration: underline;
+}
+
+.ialogo {
+  background-color: black;
+  text-align: center;
+  padding: 2px;
+  height: 32px;
+  width: 32px;
+  display: inline-block;
+}
+
+#footer {
+  text-align: right;
+  padding: 1em;
+  background-color: rgba(0,0,0,.1);
+  font-size: 75%;
+  font-style: oblique;
+}
+
+.centered {
+  text-align: center;
+}
+
+input[type=input] {
+  font-size: 150%;
+  border: 2px solid black;
+}
+
+form {
+  margin: 1em;
+}
+
+.blurb {
+  font-size: 150%;
+}
+
+.guttered {
+  max-width: 800px;
+}
+
+#results {
+  margin: 25px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.result {
+  margin: 5px;
+  box-shadow: 0px 0px 4px gray;
+  min-width: 300px;
+  min-height: 200px;
+  /*text-align: center;*/
+}
+
+.result ul {
+  list-style: none;
+  padding: 0;
+}
+
+.result a {
+  text-decoration: none;
+  font-size: 80%;
+  color: grey;
+}
+
+.result a:hover {
+  text-decoration: underline;
+}
+
+.result img {
+  /*
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  */
+}
+
+#pagination {
+  text-align: center;
+  font-style: oblique;
+  margin-top:25px;
+}
+
+#pagination span {
+  vertical-align: top;
+  font-size: 180%;
+}
+
+.uses {
+  height: 100px;
+  width: 300px;
+  overflow-y: scroll;
+}

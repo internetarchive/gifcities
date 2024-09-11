@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}GifCities{% endblock %}
+
+{% block content %}
+<div class="centered">
+  <h1>GifCities</h1>
+  <h2>The Geocities Animated Gif Search Engine</h2>
+  <em>from the Internet Archive</em>
+
+  {% include "search_form.html" %}
+
+<img src="/static/spinning-ia-logo.gif">
+
+<p class="blurb">
+  GifCities is a special project of the <a href="https://archive.org" target="_blank">Internet Archive</a> The Internet Archive is a non-profit digital library of millions of free books, movies, software, music, websites, and more. Please consider <a href="https://archive.org/donating" target="_blank">donate</a> to help us in our efforts to provide “Universal Access to All Knowledge” including GIFs.
+</p>
+
+<img src="/static/tome.gif">
+
+{% endblock %}
+
