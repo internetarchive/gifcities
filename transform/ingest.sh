@@ -17,8 +17,27 @@
 
 set -e
 
-ES_URL=http://localhost:9200
-ES_INDEX=gifcities
+if [ -z "$ES_URL" ]; then
+  ES_URL=http://localhost:9200
+fi
+
+if [ -z "$ES_INDEX" ]; then
+  ES_INDEX=gifcities
+fi
+
+if grep "https" ES_URL; then
+  if [ -z "$ES_AUTH" ]; then
+    # something like "-u user:pss"
+    echo "you probably want to set ES_AUTH"
+    exit
+  fi
+
+  if [ -z "$ES_CERT" ]; then
+    # something like "--cacert filepath"
+    echo "you probably want to set ES_AUTH"
+    exit
+  fi
+fi
 
 if [ ! -f ./data/gifcities.jsonl ]; then
   echo "expected to see gifcities.jsonl in ./data; aborting"
@@ -49,7 +68,7 @@ fi
 
 echo "Creating index..."
 
-curl -XPUT $ES_URL/$ES_INDEX -H 'Content-Type: application/json' -d'
+curl $ES_CERT $ES_AUTH -XPUT $ES_URL/$ES_INDEX -H 'Content-Type: application/json' -d'
 {
   "mappings": {
     "properties": {
