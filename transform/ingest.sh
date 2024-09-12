@@ -25,18 +25,20 @@ if [ -z "$ES_INDEX" ]; then
   ES_INDEX=gifcities
 fi
 
+es_cmd="curl $ES_URL/$ES_INDEX"
+
 if grep "https" ES_URL; then
   if [ -z "$ES_AUTH" ]; then
-    # something like "-u user:pss"
     echo "you probably want to set ES_AUTH"
     exit
   fi
 
   if [ -z "$ES_CERT" ]; then
-    # something like "--cacert filepath"
     echo "you probably want to set ES_AUTH"
     exit
   fi
+
+  es_cmd="curl -u $ES_AUTH --cacert $ES_CERT $ES_URL/$ES_INDEX"
 fi
 
 if [ ! -f ./data/gifcities.jsonl ]; then
@@ -68,7 +70,7 @@ fi
 
 echo "Creating index..."
 
-curl $ES_CERT $ES_AUTH -XPUT $ES_URL/$ES_INDEX -H 'Content-Type: application/json' -d'
+$es_cmd -XPUT -H 'Content-Type: application/json' -d'
 {
   "mappings": {
     "properties": {
