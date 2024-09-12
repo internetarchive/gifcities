@@ -1,5 +1,5 @@
 [default]
-ELASTICSEARCH_URL = "http://es-ait-fts-01.us.archive.org:9200"
+ELASTICSEARCH_URL = "https://ait-es-data-02.us.archive.org:9200"
 ELASTICSEARCH_INDEX = "gifcities"
 DEBUG = false
 # TODO waiting on new subdomain

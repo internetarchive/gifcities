@@ -53,6 +53,14 @@ curl -XPUT $ES_URL/$ES_INDEX -H 'Content-Type: application/json' -d'
 {
   "mappings": {
     "properties": {
+      "vecs": {
+        "type": "nested",
+        "properties": {
+          "vector": {
+            "type": "dense_vector"
+          }
+        }
+      },
       "uses": {
         "type": "nested"
       }

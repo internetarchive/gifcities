@@ -22,9 +22,12 @@ import (
 )
 
 const (
-	encodedPath  = "/kubwa/gifcities/gifs_jsonl.gz" // aitio
-	manifestPath = "./data/gifcities-gifs.txt"
-	htmlPath     = "./data/gifpages_html.jsonl.gz"
+	encodedPath   = "/kubwa/gifcities/gifs_jsonl.gz" // aitio
+	manifestPath  = "./data/gifcities-gifs.txt"
+	htmlPath      = "./data/gifpages_html.jsonl.gz"
+	jsonlPath     = "./data/gifcities.jsonl"
+	mergedVecPath = "./data/gifcities_vec.jsonl"
+	vecPath       = "./data/embeddings3.snapshot.20240911.jsonl.gz"
 )
 
 type Page struct {
@@ -41,6 +44,10 @@ type Use struct {
 	Filename  string `json:"filename"`
 }
 
+type Vec struct {
+	Vector []float64 `json:"vector"`
+}
+
 type Gif struct {
 	Checksum string `json:"checksum"`
 	Terms    string `json:"terms"`
@@ -49,6 +56,7 @@ type Gif struct {
 	Width    int32  `json:"width"`
 	Height   int32  `json:"height"`
 	NSFW     int    `json:"nsfw"`
+	Vecs     []Vec  `json:"vecs,omitempty"`
 }
 
 func parsePage(p string) *Page {
@@ -99,7 +107,7 @@ func manifest(manifestPath string) error {
 		return err
 	}
 	defer f.Close()
-	out, err := os.Create("./data/gifcities.jsonl")
+	out, err := os.Create(jsonlPath)
 	if err != nil {
 		return err
 	}
@@ -485,45 +493,135 @@ func upload(encodedPath string) error {
 	return nil
 }
 
+func gzScanner(gzpath string) (s *bufio.Scanner, err error) {
+	vf, err := os.Open(gzpath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open '%s': %w", gzpath, err)
+	}
+
+	zr, err := gzip.NewReader(vf)
+	if err != nil {
+		return
+	}
+	s = bufio.NewScanner(zr)
+	buf := make([]byte, 0, 24*1024*1024)
+	s.Buffer(buf, 24*1024*1024)
+	return
+}
+
+func vecmerge(vp string) error {
+	gifs := map[string]*Gif{}
+	f, err := os.Open(jsonlPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	buf := make([]byte, 0, 24*1024*1024)
+	s.Buffer(buf, 24*1024*1024)
+	for s.Scan() {
+		gif := Gif{}
+		if err := json.Unmarshal(s.Bytes(), &gif); err != nil {
+			return err
+		}
+		gifs[gif.Checksum] = &gif
+	}
+	if s.Err() != nil {
+		return fmt.Errorf("gifcities.jsonl scanner failed: %w", s.Err())
+	}
+
+	vf, err := os.Open(vp)
+	if err != nil {
+		return err
+	}
+	defer vf.Close()
+
+	zr, err := gzip.NewReader(vf)
+	if err != nil {
+		return err
+	}
+	s = bufio.NewScanner(zr)
+	if err != nil {
+		return err
+	}
+	s.Buffer(buf, 24*1024*1024)
+
+	out, err := os.Create(mergedVecPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	type VecLine struct {
+		Hash      string
+		Embedding []float64
+	}
+
+	for s.Scan() {
+		vl := VecLine{}
+		if err := json.Unmarshal(s.Bytes(), &vl); err != nil {
+			return fmt.Errorf("failed to deserialize embedding: %w", err)
+		}
+		g, ok := gifs[vl.Hash]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "WARN checksum '%s' not found in gifcities.jsonl\n", vl.Hash)
+			continue
+		}
+		if g.Vecs == nil {
+			g.Vecs = []Vec{}
+		}
+		g.Vecs = append(g.Vecs, Vec{Vector: vl.Embedding})
+	}
+	if s.Err() != nil {
+		return fmt.Errorf("embeddings scanner failed: %w", s.Err())
+	}
+
+	for _, g := range gifs {
+		bs, err := json.Marshal(g)
+		if err != nil {
+			return fmt.Errorf("failed to serialize %s: %w", g.Checksum, err)
+		}
+
+		fmt.Fprintf(out, "%s\n", strings.ReplaceAll(string(bs), "\n", ""))
+	}
+
+	return nil
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "need a subcommand")
 		os.Exit(2)
 	}
 
+	var err error
+
 	switch os.Args[1] {
 	case "upload":
-		err := upload(encodedPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed: %s", err.Error())
-			os.Exit(1)
-		}
-
+		err = upload(encodedPath)
 	case "manifest":
 		mp := manifestPath
 		if len(os.Args) == 3 {
 			mp = os.Args[2]
 		}
-		err := manifest(mp)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed: %s", err.Error())
-			os.Exit(1)
-		}
+		err = manifest(mp)
 	case "alt":
-		err := alt(htmlPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed: %s", err.Error())
-			os.Exit(1)
-		}
+		err = alt(htmlPath)
 	case "eximg":
-		err := eximg()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed: %s", err.Error())
-			os.Exit(1)
+		err = eximg()
+	case "vecmerge":
+		vp := vecPath
+		if len(os.Args) == 3 {
+			vp = os.Args[2]
 		}
-
+		err = vecmerge(vp)
 	default:
 		fmt.Fprintln(os.Stderr, "unknown subcommand")
 		os.Exit(3)
+	}
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed: %s\n", err.Error())
+		os.Exit(1)
 	}
 }
