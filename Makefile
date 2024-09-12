@@ -19,7 +19,6 @@ dep: .venv ## Install dependencies using pip install -e to .venv
 freeze: dep
 	.venv/bin/uv pip compile --generate-hashes -o requirements.txt pyproject.toml
 	.venv/bin/uv pip compile --generate-hashes --extra dev -o dev.requirements.txt pyproject.toml
-	#.venv/bin/uv pip compile --generate-hashes --extra ci -o ci.requirements.txt pyproject.toml
 
 .PHONY: audit
 audit: dep
