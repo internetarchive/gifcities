@@ -27,7 +27,7 @@ fi
 
 es_cmd="curl $ES_URL/$ES_INDEX"
 
-if grep "https" ES_URL; then
+if echo $ES_URL | grep "https"; then
   if [ -z "$ES_AUTH" ]; then
     echo "you probably want to set ES_AUTH"
     exit
@@ -59,6 +59,9 @@ echo
 echo "if previously run you may want to 'curl -XDELETE $ES_URL/$ES_INDEX'"
 echo
 echo "interstitial files are kept and reused for idempotency; to start clean: 'rm -rf tmp'"
+echo
+echo "the base es cmd i will invoke is:"
+echo $es_cmd
 echo
 read -p "wanna do it? " -n 1 -r
 echo
