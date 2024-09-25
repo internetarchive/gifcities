@@ -6,8 +6,7 @@ ELASTICSEARCH_PASSWORD = "lol"
 ELASIICSEARCH_CERT = "~/es_http_ca.crt"
 ELASTICSEARCH_TIMEOUT=30
 DEBUG = false
-# TODO waiting on new subdomain
-BLOB_URL = "https://blobs.fatcat.wiki/gifcities"
+BLOB_URL = "https://blob.gifcities.org/gifcities"
 
 [test]
 
