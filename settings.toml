@@ -1,6 +1,9 @@
 [default]
 ELASTICSEARCH_URL = "https://ait-es-data-02.us.archive.org:9200"
 ELASTICSEARCH_INDEX = "gifcities"
+ELASTICSEARCH_USER = "gifcities"
+ELASTICSEARCH_PASSWORD = "lol"
+ELASTICSEARCH_TIMEOUT=30
 DEBUG = false
 # TODO waiting on new subdomain
 BLOB_URL = "https://blobs.fatcat.wiki/gifcities"
