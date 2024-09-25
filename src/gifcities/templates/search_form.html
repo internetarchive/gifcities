@@ -7,8 +7,6 @@
     <div>
       <input type="radio" id="flavor1" name="flavor" value="lexical" {% if flavor == 'lexical' %}checked{%endif%}/>
       <label for="flavor1">lexical (url text)</label>
-
-<h1>{{flavor}}</h1>
       <input type="radio" id="flavor2" name="flavor" value="semantic" {% if flavor == 'semantic' or not flavor %}checked{%endif%} />
       <label for="flavor2">semantic (image analysis)</label>
     </div>
