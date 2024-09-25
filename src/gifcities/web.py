@@ -25,7 +25,7 @@ tmpls = Jinja2Templates(directory='src/gifcities/templates')
 
 es_client = Elasticsearch(
         settings.ELASTICSEARCH_URL,
-        ca_certs="/home/vilmibm/es_http_ca.crt", # TODO
+        ca_certs=settings.ELASTICSEARCH_CERT,
         basic_auth=(settings.ELASTICSEARCH_USER, settings.ELASTICSEARCH_PASSWORD),
         )
 
