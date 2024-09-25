@@ -34,7 +34,7 @@
 
   <div id="pagination">
     {% if offset > 0 %}
-    <a href="/search?q={{q}}&offset={{offset-page_size}}&page_size={{page_size}}">
+    <a href="/search?q={{qu}}&offset={{offset-page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}">
       <img src="/static/arrowleft.gif" alt="previous page">
     </a>
     {% endif %}
@@ -42,7 +42,7 @@
     <span>on page {{current_page}} of {{total_pages}}</span>
 
     {% if offset < total_pages*page_size %}
-    <a href="/search?q={{q}}&offset={{offset+page_size}}&page_size={{page_size}}">
+    <a href="/search?q={{qu}}&offset={{offset+page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}">
       <img src="/static/arrowright.gif" alt="next page">
     </a>
     {% endif %}

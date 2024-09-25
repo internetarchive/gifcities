@@ -1,4 +1,5 @@
 import contextlib
+import urllib.parse
 from enum import StrEnum
 from typing import Any, AsyncIterator, TypedDict
 
@@ -192,6 +193,7 @@ async def search(request: Request) -> Response:
 
     ctx = {
         "q": q,
+        "qu": urllib.parse.quote_plus(q),
         "results": results,
         "current_page": int(offset / page_size) + 1,
         "settings": settings,
