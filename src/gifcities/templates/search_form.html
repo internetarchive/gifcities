@@ -5,10 +5,10 @@
   <fieldset>
     <legend>search type</legend>
     <div>
-      <input type="radio" id="flavor1" name="flavor" value="lexical" {% if flavor == 'lexical' %}selected{%endif%}/>
+      <input type="radio" id="flavor1" name="flavor" value="lexical" {% if flavor == 'lexical' %}checked{%endif%}/>
       <label for="flavor1">lexical (url text)</label>
 
-      <input type="radio" id="flavor2" name="flavor" value="semantic" {% if flavor == 'semantic' %}selected{%endif%}/>
+      <input type="radio" id="flavor2" name="flavor" value="semantic" {% if flavor == 'semantic' %}checked{%endif%}/>
       <label for="flavor2">semantic (image analysis)</label>
     </div>
   </fieldset>
