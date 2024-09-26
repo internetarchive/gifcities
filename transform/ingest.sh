@@ -85,6 +85,9 @@ $es_cmd -XPUT -H 'Content-Type: application/json' -d'
 {
   "mappings": {
     "properties": {
+      "checksum": {
+        "type": "keyword",
+      },
       "vecs": {
         "type": "nested",
         "properties": {

@@ -19,7 +19,7 @@ from starlette.staticfiles import StaticFiles
 from gifcities.config import settings
 
 MAX_PAGE_SIZE = 50
-DEFAULT_PAGE_SIZE = 20
+DEFAULT_PAGE_SIZE = 40
 EMBEDDING_MODEL = "ViT-L-14"
 EMBEDDING_PRETRAIN = "laion2b_s32b_b82k"
 
@@ -92,6 +92,8 @@ class Gif(pydantic.BaseModel):
     checksum: str
     page_count: int
     uses: list[GifUse]
+    height: int
+    width: int
 
 
 class SearchFlavor(StrEnum):
@@ -205,23 +207,15 @@ async def search(request: Request) -> Response:
 
     for h in resp['hits']['hits']:
         doc = h['_source']
-        uses = []
-        for u in doc['uses']:
-            page = None
-            if u['page'] != None:
-                page = GeocitiesPage(url=u['page']['url'], timestamp=u['page']['timestamp'])
-
-            uses.append(GifUse(url=u['url'],
-                               timestamp=u['timestamp'],
-                               path=u['path'],
-                               filename=u['filename'],
-                               page=page))
 
         results.append(Gif(
-            checksum=doc['checksum'],
-            page_count=doc['page_count'],
-            uses=uses))
+            checksum=h['_source']['checksum'],
+            page_count=h['_source']['page_count'],
+            width=h['_source']['width'],
+            height=h['_source']['height'],
+            uses=[]))
 
+    results.sort(key=lambda r: r.height, reverse=True)
     # TODO debugging
     del resp['hits']['hits']
     print(resp)
@@ -240,6 +234,69 @@ async def search(request: Request) -> Response:
 
     return tmpls.TemplateResponse(request, "results.html", ctx)
 
+async def detail(request: Request) -> Response:
+    checksum = request.path_params['checksum']
+    # TODO validate checksum
+    # TODO use async query to ES
+
+    # TODO i think this might work once I regingest and pick up the mapping
+    # that checksum is a keyword
+    #query = {
+    #        "term": {
+    #            "checksum": {
+    #                "value": checksum,
+    #                },
+    #            },
+    #        }
+
+    # TODO this will probably break once we reingest and get the new checksum keyword mapping
+    query = {
+            "match": {
+                "checksum": {
+                    "query": checksum,
+                    },
+                },
+            }
+
+    # TODO is there a better way to do this...
+    resp = es_client.search(
+            request_timeout=settings.ELASTICSEARCH_TIMEOUT,
+            index=settings.ELASTICSEARCH_INDEX,
+            size=1,
+            query=query)
+
+    if resp['hits']['total']['value'] == 0:
+        # TODO gif laden 404 page
+        return HTMLResponse(content="idk that gif, sorry", status_code=404)
+
+    result = resp['hits']['hits'][0]['_source']
+
+    # TODO debugging
+    del resp['hits']['hits']
+    print(resp)
+
+    uses = []
+    for u in result['uses']:
+        page = None
+        if u['page'] != None:
+            page = GeocitiesPage(url=u['page']['url'], timestamp=u['page']['timestamp'])
+
+        uses.append(GifUse(url=u['url'],
+                           timestamp=u['timestamp'],
+                           path=u['path'],
+                           filename=u['filename'],
+                           page=page))
+
+    ctx = {
+        "settings": settings,
+        "checksum": checksum,
+        "page_count": result['page_count'],
+        "uses": uses,
+    }
+
+    return tmpls.TemplateResponse(request, "details.html", ctx)
+
+
 class State(TypedDict):
     query_embedder: QueryEmbedder
 
@@ -252,6 +309,7 @@ app = Starlette(debug=settings.DEBUG, lifespan=lifespan, routes=[
     Route('/about', about),
     Route('/favicon.ico', favicon),
     Route('/search', search),
+    Route('/detail/{checksum}', detail),
     Mount('/static', StaticFiles(directory='src/gifcities/static'), name='static'),
 ])
 

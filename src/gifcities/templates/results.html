@@ -9,25 +9,9 @@
 <div id="results">
   {% for result in results %}
   <div class="result">
-    <img src="{{settings.BLOB_URL}}/{{result.checksum}}">
-    {% if result.uses %}
-    <div><em>used on <a class="showUses" href="#">{{result.page_count}}</a> pages <a class="randomUse" href="#random" title="visit a random page that uses this gif">⚂</a></em></div>
-    {% endif %}
-    <div class="uses" hidden="true">
-      {% if result.uses %}
-      <ul>
-        {% for use in result.uses %}
-          {% if use.page %}
-          <li>
-            <a href="https://web.archive.org/web/{{use.page.timestamp}}/{{use.page.url}}">
-              {{use.page.url}}
-            </a>
-          </li>
-          {% endif %}
-        {% endfor %}
-      </ul>
-      {% endif %}
-    </div>
+    <a href="/detail/{{result.checksum}}">
+      <img src="{{settings.BLOB_URL}}/{{result.checksum}}">
+    </a>
   </div>
   {% endfor %}
 </div>
@@ -41,30 +25,11 @@
 
     <span>on page {{current_page}} of {{total_pages}}</span>
 
-    {% if offset < total_pages*page_size %}
+    {% if offset < (total_pages*page_size)-1 %}
     <a href="/search?q={{qu}}&offset={{offset+page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}">
       <img src="/static/arrowright.gif" alt="next page">
     </a>
     {% endif %}
   </div>
-
-  <script>
-    document.querySelectorAll(".showUses").forEach((el) => {
-      el.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        el.closest(".result").querySelector(".uses").toggleAttribute("hidden");
-      });
-    });
-    document.querySelectorAll(".randomUse").forEach((el) => {
-      el.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        const uses = el.closest(".result").querySelector(".uses");
-        const urls = uses.querySelectorAll("a");
-        const i = Math.floor(Math.random() * urls.length);
-        urls[i].click();
-      });
-    });
-  </script>
-
 {% endblock %}
 

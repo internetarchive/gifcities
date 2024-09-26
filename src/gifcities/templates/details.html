@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}gif {{checksum}}{% endblock %}
+
+{% block content %}
+<img src="{{settings.BLOB_URL}}/{{checksum}}">
+<div><em><strong>{{page_count}}</strong> known use{%if page_count > 1%}s{%endif%}</em></div>
+<!-- TODO random page button -->
+<ul>
+  {% for use in uses %}
+    <li>
+    {% if use.page %}
+      <a href="https://web.archive.org/web/{{use.page.timestamp}}/{{use.page.url}}">
+        {{use.page.url}}
+      </a>
+    {% else %}
+      <a href="https://web.archive.org/web/{{use.timestamp}}/{{use.url}}">
+        {{use.url}}
+      </a>
+    {% endif %}
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}
