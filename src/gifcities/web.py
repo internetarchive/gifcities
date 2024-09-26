@@ -101,6 +101,10 @@ class SearchFlavor(StrEnum):
     SEMANTIC = "semantic"
     HYBRID = "hybrid"
 
+@lru_cache
+def vectorize_query(qe: QueryEmbedder, q: str) -> list[float]:
+    return qe.calculate_embedding(q).embedding
+
 
 async def search(request: Request) -> Response:
     q = request.query_params.get('q', 'geocities')
@@ -128,14 +132,10 @@ async def search(request: Request) -> Response:
     print(f"flavor: {flavor}")
     print(f"offset: {offset}")
 
-    @lru_cache
-    def vectorize_query(q: str) -> list[float]:
-        return request.state.query_embedder.calculate_embedding(q).embedding
-
     if flavor == SearchFlavor.SEMANTIC:
         query = {
             "field": "vecs.vector",
-            "query_vector": vectorize_query(q),
+            "query_vector": vectorize_query(request.state.query_embedder, q),
             # number of top results to pull from each shard's results (though
             # we have only one shard)
             "k": 1000,
@@ -183,7 +183,7 @@ async def search(request: Request) -> Response:
         }
         knn = {
             "field": "vecs.vector",
-            "query_vector": vectorize_query(q),
+            "query_vector": vectorize_query(request.state.query_embedder, q),
             # number of top results to pull from each shard's results (though
             # we have only one shard)
             "k": 1000,
