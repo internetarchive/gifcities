@@ -15,6 +15,14 @@
 #
 # go run . manifest
 
+# TODO exclude vecs from _source:
+#
+#     "_source": {
+#      "excludes": [
+#        "vecs",
+#      ]
+#    },
+
 set -e
 
 if [ -z "$ES_URL" ]; then

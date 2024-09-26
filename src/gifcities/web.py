@@ -1,6 +1,7 @@
 import contextlib
 import urllib.parse
 from enum import StrEnum
+from functools import lru_cache
 from typing import Any, AsyncIterator, TypedDict
 
 import numpy
@@ -96,6 +97,7 @@ class Gif(pydantic.BaseModel):
 class SearchFlavor(StrEnum):
     LEXICAL = "lexical"
     SEMANTIC = "semantic"
+    HYBRID = "hybrid"
 
 
 async def search(request: Request) -> Response:
@@ -124,23 +126,27 @@ async def search(request: Request) -> Response:
     print(f"flavor: {flavor}")
     print(f"offset: {offset}")
 
+    @lru_cache
+    def vectorize_query(q: str) -> list[float]:
+        return request.state.query_embedder.calculate_embedding(q).embedding
+
     if flavor == SearchFlavor.SEMANTIC:
-        qe = request.state.query_embedder
-        eq = qe.calculate_embedding(q)
         query = {
             "field": "vecs.vector",
-            "query_vector": eq.embedding,
-            "k": page_size,
-            "num_candidates": 100, # candidates per shard; lower is faster/less accurate
+            "query_vector": vectorize_query(q),
+            # number of top results to pull from each shard's results (though
+            # we have only one shard)
+            "k": 1000,
+            # candidates per shard; lower is faster/less accurate; we only have
+            # one shard so there is no point in it differing from k
+            "num_candidates": 1000,
         }
-        # TODO how to paginate?
         resp = es_client.search(
                 request_timeout=settings.ELASTICSEARCH_TIMEOUT,
                 index=settings.ELASTICSEARCH_INDEX,
                 from_=offset,
                 size=page_size,
-                sort='page_count:desc',
-                # TODO use fields to trim down response size (ie do not need vecs)
+                # TODO exclude vecs from _source
                 knn=query)
     elif flavor == SearchFlavor.LEXICAL:
         query = {
@@ -161,6 +167,35 @@ async def search(request: Request) -> Response:
                 size=page_size,
                 sort='page_count:desc',
                 query=query)
+    elif flavor == SearchFlavor.HYBRID:
+        query = {
+            "nested": {
+            "path": "uses",
+            "query": {
+                "multi_match": {
+                    "query": q,
+                    "fields": ["uses.filename^3", "uses.path"]
+                    }
+                }
+            }
+        }
+        knn = {
+            "field": "vecs.vector",
+            "query_vector": vectorize_query(q),
+            # number of top results to pull from each shard's results (though
+            # we have only one shard)
+            "k": 1000,
+            # candidates per shard; lower is faster/less accurate; we only have
+            # one shard so there is no point in it differing from k
+            "num_candidates": 1000,
+        }
+        resp = es_client.search(
+                request_timeout=settings.ELASTICSEARCH_TIMEOUT,
+                index=settings.ELASTICSEARCH_INDEX,
+                from_=offset,
+                size=page_size,
+                query=query,
+                knn=knn)
     else:
         return HTMLResponse(content="unsupported search flavor", status_code=400)
 

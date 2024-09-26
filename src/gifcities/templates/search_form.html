@@ -1,12 +1,14 @@
 <form action="/search" method="get">
-  <input name="q" type="search" style="font-size:150%" placeholder="{{q}}" required>
+  <input name="q" type="search" style="font-size:150%" value="{{q}}" required>
   <input name="offset" type="hidden" value="0">
   <input name="page_size" type="hidden" value="{{page_size}}">
-  <fieldset>
+  <fieldset style="display:inline">
     <legend>search type</legend>
     <div>
       <input type="radio" id="flavor1" name="flavor" value="lexical" {% if flavor == 'lexical' %}checked{%endif%}/>
       <label for="flavor1">lexical (url text)</label>
+      <input type="radio" id="flavor3" name="flavor" value="hybrid" {% if flavor == 'hybrid' %}checked{%endif%}/>
+      <label for="flavor1">hybrid (semantic and url text both)</label>
       <input type="radio" id="flavor2" name="flavor" value="semantic" {% if flavor == 'semantic' or not flavor %}checked{%endif%} />
       <label for="flavor2">semantic (image analysis)</label>
     </div>
