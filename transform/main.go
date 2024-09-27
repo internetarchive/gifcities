@@ -139,8 +139,6 @@ func manifest(manifestPath string) error {
 				Uses:     []Use{},
 				Width:    int32(width),
 				Height:   int32(height),
-				Terms:    "", // TODO
-				NSFW:     0,  // TODO
 			}
 		}
 
