@@ -11,17 +11,9 @@
 # here is the schema we want to index in elasticsearch. If you want to change
 # the ES schema, rederive this file.
 #
-# gifcities.jsol is create with the Go code in this directory. To regenerate it:
+# gifcities.jsonl is created with the Go code in this directory. To regenerate it:
 #
 # go run . manifest
-
-# TODO exclude vecs from _source:
-#
-#     "_source": {
-#      "excludes": [
-#        "vecs",
-#      ]
-#    },
 
 set -e
 
@@ -84,6 +76,11 @@ echo "Creating index..."
 $es_cmd -XPUT -H 'Content-Type: application/json' -d'
 {
   "mappings": {
+     "_source": {
+      "excludes": [
+        "vecs",
+      ]
+    },
     "properties": {
       "checksum": {
         "type": "keyword"
