@@ -27,7 +27,7 @@ const (
 	htmlPath      = "./data/gifpages_html.jsonl.gz"
 	jsonlPath     = "./data/gifcities.jsonl"
 	mergedVecPath = "./data/gifcities_vec.jsonl"
-	vecPath       = "./data/embeddings3.snapshot.20240911.jsonl.gz"
+	vecPath       = "./data/embeddings"
 )
 
 type Page struct {
@@ -49,14 +49,15 @@ type Vec struct {
 }
 
 type Gif struct {
-	Checksum string `json:"checksum"`
-	Terms    string `json:"terms"`
-	Uses     []Use  `json:"uses"`
-	UseCount int    `json:"page_count"`
-	Width    int32  `json:"width"`
-	Height   int32  `json:"height"`
-	NSFW     int    `json:"nsfw"`
-	Vecs     []Vec  `json:"vecs,omitempty"`
+	Checksum string  `json:"checksum"`
+	Terms    string  `json:"terms"`
+	Uses     []Use   `json:"uses"`
+	UseCount int     `json:"page_count"`
+	Width    int32   `json:"width"`
+	Height   int32   `json:"height"`
+	Vecs     []Vec   `json:"vecs,omitempty"`
+	MNSFW    float32 `json:"mnsfw"`
+	KNSFW    bool    `json:"knsfw"`
 }
 
 func parsePage(p string) *Page {
@@ -530,21 +531,11 @@ func vecmerge(vp string) error {
 		return fmt.Errorf("gifcities.jsonl scanner failed: %w", s.Err())
 	}
 
-	vf, err := os.Open(vp)
+	// TODO readdir
+	entries, err := os.ReadDir(vp)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not read jsonl dir '%s': %w", encodedPath, err)
 	}
-	defer vf.Close()
-
-	zr, err := gzip.NewReader(vf)
-	if err != nil {
-		return err
-	}
-	s = bufio.NewScanner(zr)
-	if err != nil {
-		return err
-	}
-	s.Buffer(buf, 24*1024*1024)
 
 	out, err := os.Create(mergedVecPath)
 	if err != nil {
@@ -553,27 +544,46 @@ func vecmerge(vp string) error {
 	defer out.Close()
 
 	type VecLine struct {
-		Hash      string
+		Hash  string
+		MNSFW float32 `json:"mnsfw"`
+		// TODO waiting on KNSFW
 		Embedding []float64
 	}
 
-	for s.Scan() {
-		vl := VecLine{}
-		if err := json.Unmarshal(s.Bytes(), &vl); err != nil {
-			return fmt.Errorf("failed to deserialize embedding: %w", err)
+	for _, e := range entries {
+		vf, err := os.Open(e.Name())
+		if err != nil {
+			return err
 		}
-		g, ok := gifs[vl.Hash]
-		if !ok {
-			fmt.Fprintf(os.Stderr, "WARN checksum '%s' not found in gifcities.jsonl\n", vl.Hash)
-			continue
+		defer vf.Close()
+		zr, err := gzip.NewReader(vf)
+		if err != nil {
+			return err
 		}
-		if g.Vecs == nil {
-			g.Vecs = []Vec{}
+		s = bufio.NewScanner(zr)
+		if err != nil {
+			return err
 		}
-		g.Vecs = append(g.Vecs, Vec{Vector: vl.Embedding})
-	}
-	if s.Err() != nil {
-		return fmt.Errorf("embeddings scanner failed: %w", s.Err())
+		s.Buffer(buf, 24*1024*1024)
+		for s.Scan() {
+			vl := VecLine{}
+			if err := json.Unmarshal(s.Bytes(), &vl); err != nil {
+				return fmt.Errorf("failed to deserialize embedding: %w", err)
+			}
+			g, ok := gifs[vl.Hash]
+			if !ok {
+				fmt.Fprintf(os.Stderr, "WARN checksum '%s' not found in gifcities.jsonl\n", vl.Hash)
+				continue
+			}
+			if g.Vecs == nil {
+				g.Vecs = []Vec{}
+			}
+			g.Vecs = append(g.Vecs, Vec{Vector: vl.Embedding})
+			g.MNSFW = vl.MNSFW
+		}
+		if s.Err() != nil {
+			return fmt.Errorf("embeddings scanner failed: %w", s.Err())
+		}
 	}
 
 	for _, g := range gifs {
