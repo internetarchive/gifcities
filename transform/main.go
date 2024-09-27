@@ -529,7 +529,6 @@ func vecmerge(vp string) error {
 		return fmt.Errorf("gifcities.jsonl scanner failed: %w", s.Err())
 	}
 
-	// TODO readdir
 	entries, err := os.ReadDir(vp)
 	if err != nil {
 		return fmt.Errorf("could not read jsonl dir '%s': %w", encodedPath, err)
@@ -549,7 +548,7 @@ func vecmerge(vp string) error {
 	}
 
 	for _, e := range entries {
-		vf, err := os.Open(e.Name())
+		vf, err := os.Open(path.Join(vp, e.Name()))
 		if err != nil {
 			return err
 		}
