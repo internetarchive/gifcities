@@ -86,7 +86,7 @@ $es_cmd -XPUT -H 'Content-Type: application/json' -d'
   "mappings": {
     "properties": {
       "checksum": {
-        "type": "keyword",
+        "type": "keyword"
       },
       "mnsfw": {
         "type": "float",
@@ -139,6 +139,6 @@ fi
 echo "POSTing to index"
 
 ls x* | while read x; do \
-  curl -v -H "Content-Type: application/x-ndjson"    \
-  -XPOST $ES_URL/$ES_INDEX/_bulk --data-binary "@$x"; \
+  ${es_cmd}/_bulk -v -H "Content-Type: application/x-ndjson"    \
+  -XPOST --data-binary "@$x"; \
 done
