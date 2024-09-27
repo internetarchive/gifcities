@@ -88,6 +88,18 @@ $es_cmd -XPUT -H 'Content-Type: application/json' -d'
       "checksum": {
         "type": "keyword",
       },
+      "mnsfw": {
+        "type": "float",
+        "index": true
+      },
+      "width": {
+        "type": "integer",
+        "index": true
+      },
+      "height": {
+        "type": "integer",
+        "index": true
+      },
       "vecs": {
         "type": "nested",
         "properties": {
