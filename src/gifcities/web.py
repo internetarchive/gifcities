@@ -19,9 +19,10 @@ from starlette.staticfiles import StaticFiles
 from gifcities.config import settings
 
 MAX_PAGE_SIZE = 50
-DEFAULT_PAGE_SIZE = 40
+DEFAULT_PAGE_SIZE = 25
 EMBEDDING_MODEL = "ViT-L-14"
 EMBEDDING_PRETRAIN = "laion2b_s32b_b82k"
+DEFAULT_MNSFW_THRESHOLD = 0.5
 
 tmpls = Jinja2Templates(directory='src/gifcities/templates')
 
@@ -29,6 +30,7 @@ es_client = Elasticsearch(
         settings.ELASTICSEARCH_URL,
         ca_certs=settings.ELASTICSEARCH_CERT,
         basic_auth=(settings.ELASTICSEARCH_USER, settings.ELASTICSEARCH_PASSWORD),
+        request_timeout=settings.ELASTICSEARCH_TIMEOUT,
         )
 
 class EmbeddedQuery(pydantic.BaseModel):
@@ -94,6 +96,7 @@ class Gif(pydantic.BaseModel):
     uses: list[GifUse]
     height: int
     width: int
+    mnsfw: float
 
 
 class SearchFlavor(StrEnum):
@@ -123,6 +126,11 @@ async def search(request: Request) -> Response:
     except ValueError:
         pass
 
+    try:
+        mnsfw_threshold = float(mt)
+    except ValueError as e:
+        pass
+
     if page_size > MAX_PAGE_SIZE:
         page_size = MAX_PAGE_SIZE
 
@@ -131,6 +139,16 @@ async def search(request: Request) -> Response:
     print(f"q: {q}")
     print(f"flavor: {flavor}")
     print(f"offset: {offset}")
+    print(f"mnsfw_threshold {mnsfw_threshold}")
+
+    post_filter = {
+            "range": {
+                "mnsfw": {
+                    "lte": mnsfw_threshold,
+                    "gte": 0.0,
+                },
+            },
+    }
 
     if flavor == SearchFlavor.SEMANTIC:
         query = {
@@ -144,8 +162,8 @@ async def search(request: Request) -> Response:
             "num_candidates": 1000,
         }
         resp = es_client.search(
-                request_timeout=settings.ELASTICSEARCH_TIMEOUT,
                 index=settings.ELASTICSEARCH_INDEX,
+                post_filter=post_filter,
                 from_=offset,
                 size=page_size,
                 # TODO exclude vecs from _source
@@ -159,12 +177,13 @@ async def search(request: Request) -> Response:
                     "query": q,
                     "fields": ["uses.filename^3", "uses.path"]
                     }
-                }
+                },
             }
         }
+
         resp = es_client.search(
-                request_timeout=settings.ELASTICSEARCH_TIMEOUT,
                 index=settings.ELASTICSEARCH_INDEX,
+                post_filter=post_filter,
                 from_=offset,
                 size=page_size,
                 sort='page_count:desc',
@@ -192,8 +211,8 @@ async def search(request: Request) -> Response:
             "num_candidates": 1000,
         }
         resp = es_client.search(
-                request_timeout=settings.ELASTICSEARCH_TIMEOUT,
                 index=settings.ELASTICSEARCH_INDEX,
+                post_filter=post_filter,
                 from_=offset,
                 size=page_size,
                 query=query,
@@ -213,6 +232,7 @@ async def search(request: Request) -> Response:
             page_count=h['_source']['page_count'],
             width=h['_source']['width'],
             height=h['_source']['height'],
+            mnsfw=h['_source']['mnsfw'],
             uses=[]))
 
     results.sort(key=lambda r: r.height, reverse=True)
@@ -230,6 +250,7 @@ async def search(request: Request) -> Response:
         "total_pages": int(resp['hits']['total']['value'] / page_size) + 1,
         "page_size": page_size,
         "flavor": flavor,
+        "mnsfw": mnsfw_threshold,
     }
 
     return tmpls.TemplateResponse(request, "results.html", ctx)
@@ -260,7 +281,6 @@ async def detail(request: Request) -> Response:
 
     # TODO is there a better way to do this...
     resp = es_client.search(
-            request_timeout=settings.ELASTICSEARCH_TIMEOUT,
             index=settings.ELASTICSEARCH_INDEX,
             size=1,
             query=query)
@@ -291,6 +311,7 @@ async def detail(request: Request) -> Response:
         "settings": settings,
         "checksum": checksum,
         "page_count": result['page_count'],
+        "mnsfw": result['mnsfw'],
         "uses": uses,
     }
 

@@ -8,10 +8,14 @@
       <input type="radio" id="flavor1" name="flavor" value="lexical" {% if flavor == 'lexical' %}checked{%endif%}/>
       <label for="flavor1">lexical (url text)</label>
       <input type="radio" id="flavor3" name="flavor" value="hybrid" {% if flavor == 'hybrid' %}checked{%endif%}/>
-      <label for="flavor1">hybrid (semantic and url text both)</label>
+      <label for="flavor1">hybrid</label>
       <input type="radio" id="flavor2" name="flavor" value="semantic" {% if flavor == 'semantic' or not flavor %}checked{%endif%} />
-      <label for="flavor2">semantic (image analysis)</label>
+      <label for="flavor2">semantic</label>
     </div>
+  </fieldset>
+  <fieldset style="display:inline">
+    <legend>sexy tolerance</legend>
+    <input type="range" id="mnsfw" min="0.05" step="0.01" max="1.0" name="mnsfw" value="{{ mnsfw or '0.5' }}">
   </fieldset>
 
   <button style="vertical-align: top; background: url(/static/search.gif); background-size:cover; width:150px; height:33px;"></button>
