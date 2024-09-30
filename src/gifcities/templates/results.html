@@ -5,6 +5,7 @@
 {% block content %}
   {% include "search_form.html" %}
 
+  {% include "pagination.html" %}
 
 <div id="results">
   {% for result in results %}
@@ -16,20 +17,6 @@
   {% endfor %}
 </div>
 
-  <div id="pagination">
-    {% if offset > 0 %}
-    <a href="/search?q={{qu}}&offset={{offset-page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}">
-      <img src="/static/arrowleft.gif" alt="previous page">
-    </a>
-    {% endif %}
-
-    <span>on page {{current_page}} of {{total_pages}}</span>
-
-    {% if offset < (total_pages*page_size)-1 %}
-    <a href="/search?q={{qu}}&offset={{offset+page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}">
-      <img src="/static/arrowright.gif" alt="next page">
-    </a>
-    {% endif %}
-  </div>
+  {% include "pagination.html" %}
 {% endblock %}
 
