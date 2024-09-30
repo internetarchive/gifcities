@@ -114,8 +114,10 @@ async def search(request: Request) -> Response:
     o = request.query_params.get('offset', "0")
     ps = request.query_params.get('page_size', str(DEFAULT_PAGE_SIZE))
     flavor = request.query_params.get('flavor', SearchFlavor.LEXICAL)
+    mt = request.query_params.get('mnsfw', str(DEFAULT_MNSFW_THRESHOLD))
     page_size = DEFAULT_PAGE_SIZE
     offset = 0
+    mnsfw_threshold = DEFAULT_MNSFW_THRESHOLD
     try:
         page_size = int(ps)
     except ValueError:
