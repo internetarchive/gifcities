@@ -373,7 +373,7 @@ func missing(missingJSONLPath, gifsDir string) error {
 	}
 	defer f.Close()
 
-	outf, err := os.Open("./data/livewayback.jsonl")
+	outf, err := os.Create("./data/livewayback.jsonl")
 	if err != nil {
 		return err
 	}
