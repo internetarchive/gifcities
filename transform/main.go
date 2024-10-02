@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -28,6 +29,7 @@ const (
 	jsonlPath     = "./data/gifcities.jsonl"
 	mergedVecPath = "./data/gifcities_vec.jsonl"
 	vecPath       = "./data/embeddings"
+	bucket        = "gifcities"
 )
 
 type Page struct {
@@ -350,28 +352,120 @@ func eximg() error {
 	return nil
 }
 
-func upload(encodedPath string) error {
-	// This code is only intended to be run from aitio
-	accessKey := os.Getenv("S3_ACCESS_KEY")
-	secretKey := os.Getenv("S3_SECRET_KEY")
-	if accessKey == "" {
-		return errors.New("need S3_ACCESS_KEY in env")
-	}
-	if accessKey == "" {
-		return errors.New("need S3_SECRET_KEY in env")
-	}
-	lFile, err := os.Create("hashes.log")
+func missing(missingJSONLPath, gifsDir string) error {
+	// this is a highly specific script for dealing with the 4kish gifs i had to
+	// fetch from live wayback. the goal is to produce gzipped jsonl that matches
+	// what my spark job emits.
+
+	// missingJSONLPath is the path to a file like gifcities.jsonl but only for
+	// the gifs that had to be fetched from live wayback.
+	// gifsDir is where the missing gifs are.
+
+	// keys:
+	// - hash
+	// - url
+	// - ts
+	// - gifb64
+
+	f, err := os.Open(missingJSONLPath)
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
-	hashLog := log.New(lFile, "", log.Lshortfile)
-	defer lFile.Close()
-	ctx := context.Background()
-	bucket := "gifcities"
+	outf, err := os.Open("./data/livewayback.jsonl")
+	if err != nil {
+		return err
+	}
+	defer outf.Close()
+
+	s := bufio.NewScanner(f)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 0, 24*1024*1024)
+	s.Buffer(buf, 24*1024*1024)
+
+	type out struct {
+		Hash   string `json:"hash"`
+		URL    string `json:"url"`
+		TS     string `json:"ts"`
+		Gifb64 string `json:"gifb64"`
+	}
+
+	for s.Scan() {
+		var gif Gif
+		err := json.Unmarshal(s.Bytes(), &gif)
+		if err != nil {
+			return fmt.Errorf("could not deserialize '%s': %w", s.Text(), err)
+		}
+
+		gf, err := os.Open(path.Join(gifsDir, gif.Checksum))
+		if err != nil {
+			return fmt.Errorf("could not open gif '%s': %w", gif.Checksum, err)
+		}
+		defer gf.Close()
+
+		bs, err := io.ReadAll(gf)
+		if err != nil {
+			return fmt.Errorf("could not read gif '%s': %w", gif.Checksum, err)
+		}
+		gifb64 := base64.StdEncoding.EncodeToString(bs)
+
+		o := out{
+			Hash:   gif.Checksum,
+			URL:    gif.Uses[0].URL,
+			TS:     gif.Uses[0].Timestamp,
+			Gifb64: gifb64,
+		}
+
+		obs, err := json.Marshal(o)
+		if err != nil {
+			return fmt.Errorf("failed to serialize %s: %w", o.Hash, err)
+		}
+
+		fmt.Fprintf(outf, "%s\n", strings.ReplaceAll(string(obs), "\n", ""))
+	}
+
+	if err = s.Err(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func uploadRaw(gifsDir string) error {
+	// this code is a highly specific script for dealing with the 4kish gifs I
+	// had to fetch from live wayback. The goal is to upload every gif in a given
+	// directory to seaweed using its filename (a hash) as a key.
+
+	s3c, err := newS3Client()
+	if err != nil {
+		return err
+	}
+	if err = ensureBucket(s3c, bucket); err != nil {
+		return err
+	}
+
+	// TODO
+	// TODO readdir
+	// TODO s3 upload
+
+	return nil
+}
+
+func newS3Client() (*minio.Client, error) {
+	accessKey := os.Getenv("S3_ACCESS_KEY")
+	secretKey := os.Getenv("S3_SECRET_KEY")
+	if accessKey == "" {
+		return nil, errors.New("need S3_ACCESS_KEY in env")
+	}
+	if secretKey == "" {
+		return nil, errors.New("need S3_SECRET_KEY in env")
+	}
 	endpoint := os.Getenv("S3_ENDPOINT")
 	if endpoint == "" {
-		return errors.New("need S3_ENDPOINT in env")
+		return nil, errors.New("need S3_ENDPOINT in env")
 	}
 	s3c, err := minio.New(endpoint,
 		&minio.Options{
@@ -382,9 +476,14 @@ func upload(encodedPath string) error {
 		},
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return s3c, nil
+}
+
+func ensureBucket(s3c *minio.Client, bucket string) error {
+	ctx := context.Background()
 	ok, err := s3c.BucketExists(ctx, bucket)
 	if err != nil {
 		return fmt.Errorf("bucket exist failed: %w", err)
@@ -394,6 +493,26 @@ func upload(encodedPath string) error {
 		if err := s3c.MakeBucket(ctx, bucket, opts); err != nil {
 			return fmt.Errorf("make bucket failed: %w", err)
 		}
+	}
+	return nil
+}
+
+func upload(encodedPath string) error {
+	// This code is only intended to be run from aitio
+	lFile, err := os.Create("hashes.log")
+	if err != nil {
+		return err
+	}
+	hashLog := log.New(lFile, "", log.Lshortfile)
+	defer lFile.Close()
+
+	s3c, err := newS3Client()
+	if err != nil {
+		return fmt.Errorf("failed to create s3 client: %w", err)
+	}
+
+	if err = ensureBucket(s3c, bucket); err != nil {
+		return err
 	}
 
 	entries, err := os.ReadDir(encodedPath)
@@ -441,6 +560,8 @@ func upload(encodedPath string) error {
 
 		buf := make([]byte, 0, 24*1024*1024)
 		s.Buffer(buf, 24*1024*1024)
+
+		ctx := context.Background()
 
 		for s.Scan() {
 			line := s.Text()
@@ -616,6 +737,8 @@ func main() {
 		err = alt(htmlPath)
 	case "eximg":
 		err = eximg()
+	case "missing":
+		err = missing("./data/gifcities.jsonl", "./data/missing")
 	case "vecmerge":
 		vp := vecPath
 		if len(os.Args) == 3 {
