@@ -60,6 +60,7 @@ type Gif struct {
 	Vecs     []Vec   `json:"vecs,omitempty"`
 	MNSFW    float32 `json:"mnsfw"`
 	KNSFW    bool    `json:"knsfw"`
+	Mspec    string  `json:"mspec"`
 }
 
 func parsePage(p string) *Page {
@@ -708,6 +709,7 @@ func vecmerge(vp string) error {
 	type VecLine struct {
 		Hash  string
 		MNSFW float32 `json:"mnsfw"`
+		Mspec string  `json:"mspec"`
 		// TODO waiting on KNSFW
 		Embedding []float64
 	}
@@ -742,6 +744,7 @@ func vecmerge(vp string) error {
 			}
 			g.Vecs = append(g.Vecs, Vec{Vector: vl.Embedding})
 			g.MNSFW = vl.MNSFW
+			g.Mspec = vl.Mspec
 		}
 		if s.Err() != nil {
 			return fmt.Errorf("embeddings scanner failed: %w", s.Err())

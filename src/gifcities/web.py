@@ -1,5 +1,6 @@
 import contextlib
 import json
+import logging
 import urllib.parse
 from enum import StrEnum
 from functools import lru_cache
@@ -21,8 +22,6 @@ from gifcities.config import settings
 
 MAX_PAGE_SIZE = 50
 DEFAULT_PAGE_SIZE = 25
-EMBEDDING_MODEL = "ViT-L-14"
-EMBEDDING_PRETRAIN = "laion2b_s32b_b82k"
 DEFAULT_MNSFW_THRESHOLD = 0.5
 
 tmpls = Jinja2Templates(directory='src/gifcities/templates')
@@ -39,7 +38,11 @@ class EmbeddedQuery(pydantic.BaseModel):
     embedding: list[float]
 
 class QueryEmbedder:
-    def __init__(self, model_name=EMBEDDING_MODEL, pretrain=EMBEDDING_PRETRAIN):
+    def __init__(self, model_name, pretrain):
+        if model_name == "":
+            raise ValueError("model_name required")
+        if pretrain == "":
+            raise ValueError("pretrain required")
         self.model_name = model_name
         self.pretrain = pretrain
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -50,25 +53,16 @@ class QueryEmbedder:
     def calculate_embedding(self, text) -> EmbeddedQuery:
         return self.calculate(text, self.model, self.tokenizer, self.device)
 
-    def l2_normalize(self, vectors: list[float]) -> list[float]:
-        vectors_np = numpy.array(vectors)
-        norms = numpy.linalg.norm(vectors_np, ord=2, axis=1, keepdims=True)
-        normalized_vectors = vectors_np / norms
-        return normalized_vectors.tolist()
-
     # TODO clip is not good about types; model/tokenizer can be various classes
     # without a common hierarchy :(
-    # TODO will i need to normalize?
     def calculate(self, text: str, model: Any, tokenizer: Any, device: str):
         with torch.no_grad():
             tokenized_text = tokenizer([text]).to(device)
             text_features = model.encode_text(tokenized_text)
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            lol = text_features.cpu().numpy().tolist()[0]
             return EmbeddedQuery(
                     query=text,
-                    #embedding=self.l2_normalize(lol))
-                    embedding=lol)
+                    embedding=text_features.cpu().numpy().tolist()[0])
 
 
 async def index(request: Request) -> Response:
@@ -227,8 +221,12 @@ async def search(request: Request) -> Response:
 
     # TODO use async query to ES
 
+    expected_mspec = f"{settings.EMBEDDING_MODEL}/{settings.EMBEDDING_PRETRAIN}"
+    mspec = ""
+
     for h in resp['hits']['hits']:
         doc = h['_source']
+        mspec = doc.get("mspec")
 
         results.append(Gif(
             checksum=h['_source']['checksum'],
@@ -237,6 +235,9 @@ async def search(request: Request) -> Response:
             height=h['_source']['height'],
             mnsfw=h['_source']['mnsfw'],
             uses=[]))
+
+    if mspec != "" and expected_mspec != mspec:
+        request.state.logger.warn(f"mspec mismatch: expected {expected_mspec}, got {mspec}. This may degrade semantic search results")
 
     results.sort(key=lambda r: r.height, reverse=True)
     # TODO debugging
@@ -324,10 +325,13 @@ async def detail(request: Request) -> Response:
 
 class State(TypedDict):
     query_embedder: QueryEmbedder
+    logger: logging.Logger
 
 @contextlib.asynccontextmanager
 async def lifespan(app: Starlette) -> AsyncIterator[State]:
-    yield {'query_embedder': QueryEmbedder()}
+    yield {'logger': logging.getLogger("gifcities"),
+           'query_embedder': QueryEmbedder(
+        settings.EMBEDDING_MODEL, settings.EMBEDDING_PRETRAIN)}
 
 app = Starlette(debug=settings.DEBUG, lifespan=lifespan, routes=[
     Route('/', index),

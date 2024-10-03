@@ -7,6 +7,8 @@ ELASTICSEARCH_CERT = "~/es_http_ca.crt"
 ELASTICSEARCH_TIMEOUT=30
 DEBUG = false
 BLOB_URL = "https://blob.gifcities.org/gifcities"
+EMBEDDING_MODEL = "ViT-L-14"
+EMBEDDING_PRETRAIN = "laion2b_s32b_b82k"
 
 [test]
 
