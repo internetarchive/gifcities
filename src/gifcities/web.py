@@ -132,11 +132,8 @@ async def search(request: Request) -> Response:
         page_size = MAX_PAGE_SIZE
 
     # TODO debugging
-    print(f"page size: {page_size}")
-    print(f"q: {q}")
-    print(f"flavor: {flavor}")
-    print(f"offset: {offset}")
-    print(f"mnsfw_threshold {mnsfw_threshold}")
+    request.state.logger.debug(
+    f"page size: {page_size} q: {q} flavor: {flavor} offset: {offset} mnsfw_threshold {mnsfw_threshold}")
 
     post_filter = {
             "range": {
@@ -147,8 +144,15 @@ async def search(request: Request) -> Response:
             },
     }
 
+    query_args = {
+            'index': settings.ELASTICSEARCH_INDEX,
+            'from': offset,
+            'size': page_size,
+            'post_filter': post_filter,
+            }
+
     if flavor == SearchFlavor.SEMANTIC:
-        query = {
+        query_args['knn'] = {
             "field": "vecs.vector",
             "query_vector": vectorize_query(request.state.query_embedder, q),
             # number of top results to pull from each shard's results (though
@@ -158,15 +162,9 @@ async def search(request: Request) -> Response:
             # one shard so there is no point in it differing from k
             "num_candidates": 1000,
         }
-        resp = es_client.search(
-                index=settings.ELASTICSEARCH_INDEX,
-                post_filter=post_filter,
-                from_=offset,
-                size=page_size,
-                # TODO exclude vecs from _source
-                knn=query)
     elif flavor == SearchFlavor.LEXICAL:
-        query = {
+        query_args['sort'] = 'page_count:desc'
+        query_args['query'] = {
             "nested": {
             "path": "uses",
             "query": {
@@ -177,16 +175,8 @@ async def search(request: Request) -> Response:
                 },
             }
         }
-
-        resp = es_client.search(
-                index=settings.ELASTICSEARCH_INDEX,
-                post_filter=post_filter,
-                from_=offset,
-                size=page_size,
-                sort='page_count:desc',
-                query=query)
     elif flavor == SearchFlavor.HYBRID:
-        query = {
+        query_args['query'] = {
             "nested": {
             "path": "uses",
             "query": {
@@ -197,7 +187,7 @@ async def search(request: Request) -> Response:
                 }
             }
         }
-        knn = {
+        query_args['knn'] = {
             "field": "vecs.vector",
             "query_vector": vectorize_query(request.state.query_embedder, q),
             # number of top results to pull from each shard's results (though
@@ -207,16 +197,10 @@ async def search(request: Request) -> Response:
             # one shard so there is no point in it differing from k
             "num_candidates": 1000,
         }
-        resp = es_client.search(
-                index=settings.ELASTICSEARCH_INDEX,
-                post_filter=post_filter,
-                from_=offset,
-                size=page_size,
-                query=query,
-                knn=knn)
     else:
         return HTMLResponse(content="unsupported search flavor", status_code=400)
 
+    resp = es_client.search(**query_args)
     results: list[Gif] = []
 
     # TODO use async query to ES
