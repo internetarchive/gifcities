@@ -5,9 +5,12 @@
 {% block content %}
   {% include "search_form.html" %}
 
+  {% if results %}
   {% include "pagination.html" %}
+  {% endif %}
 
 <div id="results">
+  {% if results %}
   {% for result in results %}
   <div class="result">
     <a href="/detail/{{result.checksum}}">
@@ -15,8 +18,40 @@
     </a>
   </div>
   {% endfor %}
+  {% else %}
+    <img style="transform:scale(-1, 1)" src="https://blob.gifcities.org/gifcities/ZNLIT6NZU7LI7TLU4JGFB2KPUOFRRTVV">
+      <div style="font-size: 300%; font-family: 'Comic Sans MS', 'Comic Sans', cursive;">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <br>
+  <img src="https://blob.gifcities.org/gifcities/PHF6BRTZKJT5NPEVBPIXJLXX2A3EWRL2" style="display:inline">
+
+  <div style="display:inline; vertical-align: 60%">
+  no results
+  </div>
+
+  <img src="https://blob.gifcities.org/gifcities/PHF6BRTZKJT5NPEVBPIXJLXX2A3EWRL2" style="transform:scale(-1, 1); display:inline">
+
+  <br>
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  <img style="display:inline" src="https://blob.gifcities.org/gifcities/3TVY3XDKHE6Z6LT4YL4HVK6DEAAC5ZR4">
+  </div>
+  <img style="display:inline;" src="https://blob.gifcities.org/gifcities/ZNLIT6NZU7LI7TLU4JGFB2KPUOFRRTVV">
+  {% endif %}
 </div>
 
+  {% if results %}
   {% include "pagination.html" %}
+  {% endif %}
 {% endblock %}
 
