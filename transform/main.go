@@ -447,9 +447,53 @@ func uploadRaw(gifsDir string) error {
 		return err
 	}
 
-	// TODO
-	// TODO readdir
-	// TODO s3 upload
+	entries, err := os.ReadDir(gifsDir)
+	if err != nil {
+		return err
+	}
+
+	putOpts := minio.PutObjectOptions{
+		ContentType: "image/gif",
+	}
+	statOpts := minio.StatObjectOptions{}
+
+	total := float64(len(entries))
+	uploads := 0
+	prevSeen := 0
+	readFiles := 0
+
+	for x, entry := range entries {
+		key := entry.Name()
+		gf, err := os.Open(path.Join(gifsDir, key))
+		if err != nil {
+			return err
+		}
+		defer gf.Close()
+		bs, err := io.ReadAll(gf)
+		if err != nil {
+			return err
+		}
+		ctx := context.Background()
+		readFiles++
+		fmt.Printf("\033[2K\r%d/%f gif files | %d gifs read | %d prevSeen | %d uploads",
+			x+1, total, readFiles, prevSeen, uploads)
+		_, err = s3c.StatObject(ctx, bucket, key, statOpts)
+		if err == nil {
+			prevSeen++
+			continue
+		}
+		info, err := s3c.PutObject(ctx, bucket, key, bytes.NewReader(bs), int64(len(bs)), putOpts)
+		if err != nil {
+			return fmt.Errorf("put object failed for '%s': %w", key, err)
+		}
+		uploads++
+		if info.Bucket != bucket {
+			return fmt.Errorf("[put] bucket mismatch: %v", info.Bucket)
+		}
+		if info.Key != key {
+			return fmt.Errorf("[put] key mismatch: %v", info.Key)
+		}
+	}
 
 	return nil
 }
@@ -739,6 +783,8 @@ func main() {
 		err = eximg()
 	case "missing":
 		err = missing("./data/gifcities.jsonl", "./data/missing")
+	case "uploadRaw":
+		err = uploadRaw("./data/missing")
 	case "vecmerge":
 		vp := vecPath
 		if len(os.Args) == 3 {
