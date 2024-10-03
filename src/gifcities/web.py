@@ -1,4 +1,5 @@
 import contextlib
+import json
 import urllib.parse
 from enum import StrEnum
 from functools import lru_cache
@@ -315,6 +316,7 @@ async def detail(request: Request) -> Response:
         "page_count": result['page_count'],
         "mnsfw": result['mnsfw'],
         "uses": uses,
+        "doc": json.dumps(result, sort_keys=True, indent=2),
     }
 
     return tmpls.TemplateResponse(request, "details.html", ctx)
