@@ -237,6 +237,9 @@ async def search(request: Request) -> Response:
 
 async def detail(request: Request) -> Response:
     checksum = request.path_params['checksum']
+    if len(checksum) != 32:
+        return HTMLResponse(content="what?", status_code=400)
+
     # TODO validate checksum
     # TODO use async query to ES
 
