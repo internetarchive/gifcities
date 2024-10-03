@@ -216,9 +216,9 @@ async def search(request: Request) -> Response:
         request.state.logger.warn(f"mspec mismatch: expected {expected_mspec}, got {mspec}. This may degrade semantic search results")
 
     results.sort(key=lambda r: r.height, reverse=True)
-    # TODO debugging
+
     del resp['hits']['hits']
-    print(resp)
+    request.state.logger.info(resp)
 
     ctx = {
         "q": q,
@@ -260,9 +260,8 @@ async def detail(request: Request) -> Response:
 
     result = resp['hits']['hits'][0]['_source']
 
-    # TODO debugging
     del resp['hits']['hits']
-    print(resp)
+    request.state.logger.info(resp)
 
     uses = []
     for u in result['uses']:
