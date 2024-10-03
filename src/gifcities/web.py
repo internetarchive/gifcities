@@ -26,13 +26,6 @@ DEFAULT_MNSFW_THRESHOLD = 0.5
 
 tmpls = Jinja2Templates(directory='src/gifcities/templates')
 
-es_client = Elasticsearch(
-        settings.ELASTICSEARCH_URL,
-        ca_certs=settings.ELASTICSEARCH_CERT,
-        basic_auth=(settings.ELASTICSEARCH_USER, settings.ELASTICSEARCH_PASSWORD),
-        request_timeout=settings.ELASTICSEARCH_TIMEOUT,
-        )
-
 class EmbeddedQuery(pydantic.BaseModel):
     query: str
     embedding: list[float]
@@ -131,8 +124,7 @@ async def search(request: Request) -> Response:
     if page_size > MAX_PAGE_SIZE:
         page_size = MAX_PAGE_SIZE
 
-    # TODO debugging
-    request.state.logger.debug(
+    request.state.logger.info(
     f"page size: {page_size} q: {q} flavor: {flavor} offset: {offset} mnsfw_threshold {mnsfw_threshold}")
 
     post_filter = {
@@ -200,7 +192,7 @@ async def search(request: Request) -> Response:
     else:
         return HTMLResponse(content="unsupported search flavor", status_code=400)
 
-    resp = es_client.search(**query_args)
+    resp = request.state.es_client.search(**query_args)
     results: list[Gif] = []
 
     # TODO use async query to ES
@@ -248,27 +240,16 @@ async def detail(request: Request) -> Response:
     # TODO validate checksum
     # TODO use async query to ES
 
-    # TODO i think this might work once I regingest and pick up the mapping
-    # that checksum is a keyword
-    #query = {
-    #        "term": {
-    #            "checksum": {
-    #                "value": checksum,
-    #                },
-    #            },
-    #        }
-
-    # TODO this will probably break once we reingest and get the new checksum keyword mapping
     query = {
-            "match": {
+            "term": {
                 "checksum": {
-                    "query": checksum,
+                    "value": checksum,
                     },
                 },
             }
 
     # TODO is there a better way to do this...
-    resp = es_client.search(
+    resp = request.state.es_client.search(
             index=settings.ELASTICSEARCH_INDEX,
             size=1,
             query=query)
@@ -310,10 +291,20 @@ async def detail(request: Request) -> Response:
 class State(TypedDict):
     query_embedder: QueryEmbedder
     logger: logging.Logger
+    es_client: Elasticsearch
 
 @contextlib.asynccontextmanager
 async def lifespan(app: Starlette) -> AsyncIterator[State]:
+
+    es_client = Elasticsearch(
+        settings.ELASTICSEARCH_URL,
+        ca_certs=settings.ELASTICSEARCH_CERT,
+        basic_auth=(settings.ELASTICSEARCH_USER, settings.ELASTICSEARCH_PASSWORD),
+        request_timeout=settings.ELASTICSEARCH_TIMEOUT,
+        )
+
     yield {'logger': logging.getLogger("gifcities"),
+           'es_client': es_client,
            'query_embedder': QueryEmbedder(
         settings.EMBEDDING_MODEL, settings.EMBEDDING_PRETRAIN)}
 
