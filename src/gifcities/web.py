@@ -10,7 +10,7 @@ import numpy
 import open_clip
 import pydantic
 import torch
-from elasticsearch import Elasticsearch
+from elasticsearch import AsyncElasticsearch
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
@@ -192,7 +192,7 @@ async def search(request: Request) -> Response:
     else:
         return HTMLResponse(content="unsupported search flavor", status_code=400)
 
-    resp = request.state.es_client.search(**query_args)
+    resp = await request.state.es_client.search(**query_args)
     results: list[Gif] = []
 
     # TODO use async query to ES
@@ -251,8 +251,8 @@ async def detail(request: Request) -> Response:
                 },
             }
 
-    # TODO is there a better way to do this...
-    resp = request.state.es_client.search(
+    # is there a better way to do this than a size one search? I couldn't find one
+    resp = await request.state.es_client.search(
             index=settings.ELASTICSEARCH_INDEX,
             size=1,
             query=query)
@@ -293,12 +293,12 @@ async def detail(request: Request) -> Response:
 class State(TypedDict):
     query_embedder: QueryEmbedder
     logger: logging.Logger
-    es_client: Elasticsearch
+    es_client: AsyncElasticsearch
 
 @contextlib.asynccontextmanager
 async def lifespan(app: Starlette) -> AsyncIterator[State]:
 
-    es_client = Elasticsearch(
+    es_client = AsyncElasticsearch(
         settings.ELASTICSEARCH_URL,
         ca_certs=settings.ELASTICSEARCH_CERT,
         basic_auth=(settings.ELASTICSEARCH_USER, settings.ELASTICSEARCH_PASSWORD),

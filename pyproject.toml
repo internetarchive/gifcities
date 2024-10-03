@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "gifcities"
 description = "Search interface for GeoCities gif files"
 dependencies = [ 
+  "aiohttp==3.10.8",
   "gunicorn==23.0.0",
   "dynaconf == 3.2.5",
   "setuptools==72.1.0",
