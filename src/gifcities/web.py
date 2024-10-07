@@ -20,7 +20,7 @@ from starlette.staticfiles import StaticFiles
 
 from gifcities.config import settings
 
-MAX_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 100
 DEFAULT_PAGE_SIZE = 25
 DEFAULT_MNSFW_THRESHOLD = 0.5
 
