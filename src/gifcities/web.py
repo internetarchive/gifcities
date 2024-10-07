@@ -103,8 +103,12 @@ async def search(request: Request) -> Response:
     ps = request.query_params.get('page_size', str(DEFAULT_PAGE_SIZE))
     flavor = request.query_params.get('flavor', SearchFlavor.LEXICAL)
     mt = request.query_params.get('mnsfw', str(DEFAULT_MNSFW_THRESHOLD))
+    w = request.query_params.get('width', "0")
+    h = request.query_params.get('height', "0")
     page_size = DEFAULT_PAGE_SIZE
     offset = 0
+    width = 0
+    height = 0
     mnsfw_threshold = DEFAULT_MNSFW_THRESHOLD
     try:
         page_size = int(ps)
@@ -113,6 +117,16 @@ async def search(request: Request) -> Response:
 
     try:
         offset = int(o)
+    except ValueError:
+        pass
+
+    try:
+        width = int(w)
+    except ValueError:
+        pass
+
+    try:
+        height = int(h)
     except ValueError:
         pass
 
@@ -128,13 +142,35 @@ async def search(request: Request) -> Response:
     f"page size: {page_size} q: {q} flavor: {flavor} offset: {offset} mnsfw_threshold {mnsfw_threshold}")
 
     post_filter = {
-            "range": {
-                "mnsfw": {
-                    "lte": mnsfw_threshold,
-                    "gte": 0.0,
-                },
-            },
+            "bool": {
+                "must": [
+                    {
+                       "range": {
+                         "mnsfw": {
+                           "lte": mnsfw_threshold,
+                           "gte": 0.0,
+                         },
+                       },
+                    },
+                ],
+           },
     }
+
+    if width > 0:
+        post_filter["bool"]["must"].append({
+            "range": {
+                "width": {
+                  "lte": width,
+                  "gte": width,
+                }}})
+
+    if height > 0:
+        post_filter["bool"]["must"].append({
+            "range": {
+                "height": {
+                  "lte": height,
+                  "gte": height,
+                 }}})
 
     query_args = {
             'index': settings.ELASTICSEARCH_INDEX,
@@ -143,7 +179,17 @@ async def search(request: Request) -> Response:
             'post_filter': post_filter,
             }
 
-    if flavor == SearchFlavor.SEMANTIC:
+    if width > 0 and height > 0 and q == "":
+        request.state.logger.info("USING WxH SEARCH")
+        query_args["query"] = {
+                "bool": {
+                    "must": [
+                        {"range": { "width": { "lte": width, "gte": width }}},
+                        {"range": { "height": { "lte": height, "gte": height }}},
+                        ]
+                    }
+                }
+    elif flavor == SearchFlavor.SEMANTIC:
         query_args['knn'] = {
             "field": "vecs.vector",
             "query_vector": vectorize_query(request.state.query_embedder, q),
@@ -195,8 +241,6 @@ async def search(request: Request) -> Response:
     resp = await request.state.es_client.search(**query_args)
     results: list[Gif] = []
 
-    # TODO use async query to ES
-
     expected_mspec = f"{settings.EMBEDDING_MODEL}/{settings.EMBEDDING_PRETRAIN}"
     mspec = ""
 
@@ -232,6 +276,11 @@ async def search(request: Request) -> Response:
         "flavor": flavor,
         "mnsfw": mnsfw_threshold,
     }
+
+    if width > 0:
+        ctx["width"] = width
+    if height > 0:
+        ctx["height"] = height
 
     return tmpls.TemplateResponse(request, "results.html", ctx)
 

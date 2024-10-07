@@ -1,6 +1,6 @@
 <div id="pagination">
   {% if offset > 0 %}
-  <a href="/search?q={{qu}}&offset={{offset-page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}&mnsfw={{mnsfw or '0.5'}}">
+  <a href="/search?q={{qu}}&offset={{offset-page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}&mnsfw={{mnsfw or '0.5'}}&width={{width or '0'}}&height={{height or '0'}}">
     <img src="/static/arrowleft.gif" alt="previous page">
   </a>
   {% endif %}
@@ -8,7 +8,7 @@
   <span>on page {{current_page}} of {{total_pages}}</span>
 
   {% if offset < (total_pages*page_size)-1 %}
-  <a href="/search?q={{qu}}&offset={{offset+page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}&mnsfw={{mnsfw or '0.5'}}">
+  <a href="/search?q={{qu}}&offset={{offset+page_size}}&page_size={{page_size}}&flavor={{flavor or 'lexical'}}&mnsfw={{mnsfw or '0.5'}}&width={{width or '0'}}&height={{height or '0'}}">
     <img src="/static/arrowright.gif" alt="next page">
   </a>
   {% endif %}
