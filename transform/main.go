@@ -785,6 +785,9 @@ func fixmanifest() error {
 	buf := make([]byte, 0, 24*1024*1024)
 
 	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".gz") {
+			continue
+		}
 		vf, err := os.Open(path.Join(sparkOutputPath, e.Name()))
 		if err != nil {
 			return err
