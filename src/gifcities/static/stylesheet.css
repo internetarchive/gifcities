@@ -1,3 +1,5 @@
+body {
+}
 h1 {
   color: teal;
   font-size: 300%;
@@ -9,11 +11,12 @@ h2 {
 
 #header {
   color: teal;
+  display: flex;
+  gap: 2.5em;
+  align-items: center;
 }
 
 #header span {
-  margin-left: 4em;
-  margin-right: 4em;
   font-size: 125%;
   font-weight: bold;
 }
@@ -41,7 +44,6 @@ h2 {
   text-align: right;
   padding: 1em;
   background-color: rgba(0,0,0,.1);
-  font-size: 75%;
   font-style: oblique;
 }
 
@@ -55,7 +57,7 @@ input[type=input] {
 }
 
 form {
-  margin: 1em;
+  margin-top: 1em;
 }
 
 .blurb {
@@ -67,17 +69,12 @@ form {
 }
 
 #results {
-  margin: 25px;
   display: flex;
   flex-wrap: wrap;
 }
 
 .result {
   padding: 5px;
-  /*border: 5px ridge white;
-  min-width: 300px;
-  min-height: 200px;
-  text-align: center;*/
 }
 
 .result ul {
