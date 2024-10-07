@@ -23,13 +23,15 @@ import (
 )
 
 const (
-	encodedPath   = "/kubwa/gifcities/gifs_jsonl.gz" // aitio
-	manifestPath  = "./data/gifcities-gifs.txt"
-	htmlPath      = "./data/gifpages_html.jsonl.gz"
-	jsonlPath     = "./data/gifcities.jsonl"
-	mergedVecPath = "./data/gifcities_vec.jsonl"
-	vecPath       = "./data/embeddings"
-	bucket        = "gifcities"
+	encodedPath     = "/kubwa/gifcities/gifs_jsonl.gz" // aitio
+	manifestPath    = "./data/gifcities-gifs.txt"
+	htmlPath        = "./data/gifpages_html.jsonl.gz"
+	jsonlPath       = "./data/gifcities.jsonl"
+	mergedVecPath   = "./data/gifcities_vec.jsonl"
+	sparkOutputPath = "/kubwa/gifcities/gifs_jsonl.gz" // aitio
+
+	vecPath = "./data/embeddings"
+	bucket  = "gifcities"
 )
 
 type Page struct {
@@ -353,6 +355,13 @@ func eximg() error {
 	return nil
 }
 
+type soLine struct {
+	Hash   string `json:"hash"`
+	URL    string `json:"url"`
+	TS     string `json:"ts"`
+	Gifb64 string `json:"gifb64,omitempty"`
+}
+
 func missing(missingJSONLPath, gifsDir string) error {
 	// this is a highly specific script for dealing with the 4kish gifs i had to
 	// fetch from live wayback. the goal is to produce gzipped jsonl that matches
@@ -387,13 +396,6 @@ func missing(missingJSONLPath, gifsDir string) error {
 	buf := make([]byte, 0, 24*1024*1024)
 	s.Buffer(buf, 24*1024*1024)
 
-	type out struct {
-		Hash   string `json:"hash"`
-		URL    string `json:"url"`
-		TS     string `json:"ts"`
-		Gifb64 string `json:"gifb64"`
-	}
-
 	for s.Scan() {
 		var gif Gif
 		err := json.Unmarshal(s.Bytes(), &gif)
@@ -413,7 +415,7 @@ func missing(missingJSONLPath, gifsDir string) error {
 		}
 		gifb64 := base64.StdEncoding.EncodeToString(bs)
 
-		o := out{
+		o := soLine{
 			Hash:   gif.Checksum,
 			URL:    gif.Uses[0].URL,
 			TS:     gif.Uses[0].Timestamp,
@@ -675,6 +677,14 @@ func gzScanner(gzpath string) (s *bufio.Scanner, err error) {
 }
 
 func vecmerge(vp string) error {
+
+	type vecLine struct {
+		Hash  string
+		MNSFW float32 `json:"mnsfw"`
+		Mspec string  `json:"mspec"`
+		// TODO waiting on KNSFW
+		Embedding []float64
+	}
 	gifs := map[string]*Gif{}
 	f, err := os.Open(jsonlPath)
 	if err != nil {
@@ -706,14 +716,6 @@ func vecmerge(vp string) error {
 	}
 	defer out.Close()
 
-	type VecLine struct {
-		Hash  string
-		MNSFW float32 `json:"mnsfw"`
-		Mspec string  `json:"mspec"`
-		// TODO waiting on KNSFW
-		Embedding []float64
-	}
-
 	for _, e := range entries {
 		vf, err := os.Open(path.Join(vp, e.Name()))
 		if err != nil {
@@ -730,7 +732,7 @@ func vecmerge(vp string) error {
 		}
 		s.Buffer(buf, 24*1024*1024)
 		for s.Scan() {
-			vl := VecLine{}
+			vl := vecLine{}
 			if err := json.Unmarshal(s.Bytes(), &vl); err != nil {
 				return fmt.Errorf("failed to deserialize embedding: %w", err)
 			}
@@ -758,6 +760,69 @@ func vecmerge(vp string) error {
 		}
 
 		fmt.Fprintf(out, "%s\n", strings.ReplaceAll(string(bs), "\n", ""))
+	}
+
+	return nil
+}
+
+func fixmanifest() error {
+	// for every line in spark output dataset
+	// keep track of what checksums  we have seen
+	// prepare jsonl output using spark output format
+	gifs := map[string]*soLine{}
+
+	outf, err := os.Create("./data/unique_from_spark.jsonl")
+	if err != nil {
+		return err
+	}
+	defer outf.Close()
+
+	entries, err := os.ReadDir(sparkOutputPath)
+	if err != nil {
+		return fmt.Errorf("could not read jsonl dir '%s': %w", sparkOutputPath, err)
+	}
+
+	buf := make([]byte, 0, 24*1024*1024)
+
+	for _, e := range entries {
+		vf, err := os.Open(path.Join(sparkOutputPath, e.Name()))
+		if err != nil {
+			return err
+		}
+		defer vf.Close()
+		zr, err := gzip.NewReader(vf)
+		if err != nil {
+			return err
+		}
+		s := bufio.NewScanner(zr)
+		if err != nil {
+			return err
+		}
+		s.Buffer(buf, 24*1024*1024)
+		for s.Scan() {
+			sol := soLine{}
+			if err := json.Unmarshal(s.Bytes(), &sol); err != nil {
+				return fmt.Errorf("failed to deserialize spark output line: %w", err)
+			}
+			sol.Gifb64 = ""
+			key := sol.Hash
+			if _, ok := gifs[key]; !ok {
+				gifs[key] = &sol
+				continue
+			}
+		}
+		if s.Err() != nil {
+			return fmt.Errorf("spark output scanner failed: %w", s.Err())
+		}
+	}
+
+	for _, g := range gifs {
+		bs, err := json.Marshal(g)
+		if err != nil {
+			return fmt.Errorf("failed to serialize %s: %w", g.Hash, err)
+		}
+
+		fmt.Fprintf(outf, "%s\n", strings.ReplaceAll(string(bs), "\n", ""))
 	}
 
 	return nil
@@ -794,6 +859,8 @@ func main() {
 			vp = os.Args[2]
 		}
 		err = vecmerge(vp)
+	case "fixmanifest":
+		err = fixmanifest()
 	default:
 		fmt.Fprintln(os.Stderr, "unknown subcommand")
 		os.Exit(3)
