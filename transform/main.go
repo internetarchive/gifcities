@@ -805,7 +805,7 @@ func fixmanifest() error {
 		for s.Scan() {
 			sol := soLine{}
 			if err := json.Unmarshal(s.Bytes(), &sol); err != nil {
-				return fmt.Errorf("failed to deserialize spark output line: %w", err)
+				return fmt.Errorf("failed to deserialize spark output line from %s: %w", e.Name(), err)
 			}
 			sol.Gifb64 = ""
 			key := sol.Hash
