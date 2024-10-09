@@ -54,15 +54,15 @@ type Vec struct {
 
 type Gif struct {
 	Checksum string  `json:"checksum"`
-	Terms    string  `json:"terms"`
+	Terms    string  `json:"terms,omitempty"`
 	Uses     []Use   `json:"uses"`
 	UseCount int     `json:"page_count"`
 	Width    int32   `json:"width"`
 	Height   int32   `json:"height"`
 	Vecs     []Vec   `json:"vecs,omitempty"`
-	MNSFW    float32 `json:"mnsfw"`
-	KNSFW    bool    `json:"knsfw"`
-	Mspec    string  `json:"mspec"`
+	MNSFW    float32 `json:"mnsfw,omitempty"`
+	KNSFW    bool    `json:"knsfw,omitempty"`
+	Mspec    string  `json:"mspec,omitempty"`
 }
 
 func parsePage(p string) *Page {
@@ -832,6 +832,8 @@ func fixmanifest() error {
 	}
 	s.Buffer(buf, 24*1024*1024)
 
+	gifsOut := map[string]*Gif{}
+
 	for s.Scan() {
 		var gif *Gif
 		line := s.Text()
@@ -867,12 +869,15 @@ func fixmanifest() error {
 		gif.Uses = append(gif.Uses, use)
 		gif.UseCount += 1
 
+		if _, ok := gifsOut[gif.Checksum]; !ok {
+			gifsOut[gif.Checksum] = gif
+		}
 	}
 	if s.Err() != nil {
 		return s.Err()
 	}
 
-	for _, gif := range gifsByTSURL {
+	for _, gif := range gifsOut {
 		bs, err := json.Marshal(gif)
 		if err != nil {
 			return fmt.Errorf("failed to serialize %s: %w", gif.Checksum, err)
