@@ -766,8 +766,12 @@ func vecmerge(vp string) error {
 }
 
 func fixmanifest() error {
-	gifsByTSURL := map[string]*Gif{}
+	tsurlToNewHash := map[string]string{}
 	gifsByHash := map[string]*Gif{}
+
+	// what we might actually want is a lookup of tsurl -> newhash. then for each
+	// gif in manifest, check for its gif in gifsByHash. if not found, look up a
+	// hash in gifsByTSURL and use that hash.
 
 	outf, err := os.Create("./data/golden_master.gifcities.jsonl")
 	if err != nil {
@@ -813,7 +817,7 @@ func fixmanifest() error {
 			key := fmt.Sprintf("%s/%s", sol.TS, sol.URL)
 
 			gifsByHash[sol.Hash] = g
-			gifsByTSURL[key] = g
+			tsurlToNewHash[key] = sol.Hash
 		}
 		if s.Err() != nil {
 			return fmt.Errorf("spark output scanner failed: %w", s.Err())
@@ -832,35 +836,39 @@ func fixmanifest() error {
 	}
 	s.Buffer(buf, 24*1024*1024)
 
-	gifsOut := map[string]*Gif{}
-
 	for s.Scan() {
 		var gif *Gif
 		line := s.Text()
 		fields := strings.Split(line, " ")
 		timestamp, u := splitWaybackURL(fields[0])
-		key := fmt.Sprintf("%s/%s", timestamp, u)
 		hash := fields[1]
-		if _, ok := gifsByTSURL[key]; ok {
-			gif = gifsByTSURL[key]
-		} else if _, ok := gifsByHash[hash]; ok {
-			gif = gifsByHash[hash]
-		} else {
-			log.Printf("FAILED TO FIND %s IN THE SPARK OUTPUT", key)
-			continue
+		gif, ok := gifsByHash[hash]
+		if !ok {
+			key := fmt.Sprintf("%s/%s", timestamp, u)
+			newhash := tsurlToNewHash[key]
+			gif, ok = gifsByHash[newhash]
+			if !ok {
+				log.Printf("FAILED TO FIND %s IN THE SPARK OUTPUT", line)
+				continue
+			}
 		}
 
-		width, err := strconv.ParseInt(fields[2], 10, 32)
-		if err != nil {
-			return fmt.Errorf("bad width '%s': %w", fields[2], err)
-		}
-		height, err := strconv.ParseInt(fields[3], 10, 32)
-		if err != nil {
-			return fmt.Errorf("bad height '%s': %w", fields[3], err)
+		if gif.Width == 0 {
+			width, err := strconv.ParseInt(fields[2], 10, 32)
+			if err != nil {
+				return fmt.Errorf("bad width '%s': %w", fields[2], err)
+			}
+			gif.Width = int32(width)
 		}
 
-		gif.Width = int32(width)
-		gif.Height = int32(height)
+		if gif.Height == 0 {
+			height, err := strconv.ParseInt(fields[3], 10, 32)
+			if err != nil {
+				return fmt.Errorf("bad height '%s': %w", fields[3], err)
+			}
+
+			gif.Height = int32(height)
+		}
 
 		use, err := parseUse(fields)
 		if err != nil {
@@ -869,15 +877,14 @@ func fixmanifest() error {
 		gif.Uses = append(gif.Uses, use)
 		gif.UseCount += 1
 
-		if _, ok := gifsOut[gif.Checksum]; !ok {
-			gifsOut[gif.Checksum] = gif
-		}
 	}
 	if s.Err() != nil {
 		return s.Err()
 	}
 
-	for _, gif := range gifsOut {
+	// TODO i think i'm back where i started :(
+
+	for _, gif := range gifsByHash {
 		bs, err := json.Marshal(gif)
 		if err != nil {
 			return fmt.Errorf("failed to serialize %s: %w", gif.Checksum, err)
