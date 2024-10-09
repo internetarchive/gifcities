@@ -766,6 +766,125 @@ func vecmerge(vp string) error {
 }
 
 func fixmanifest() error {
+	gifsByTSURL := map[string]*Gif{}
+	gifsByHash := map[string]*Gif{}
+	outf, err := os.Create("./data/golden_master.gifcities.jsonl")
+	if err != nil {
+		return err
+	}
+	defer outf.Close()
+
+	sparkf, err := os.Open("./data/unique_from_spark.jsonl")
+	if err != nil {
+		return err
+	}
+	defer sparkf.Close()
+
+	s := bufio.NewScanner(sparkf)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 0, 24*1024*1024)
+	s.Buffer(buf, 24*1024*1024)
+	for s.Scan() {
+		// TODO fill in gifs keyed by ts+url
+		sol := soLine{}
+		if err := json.Unmarshal(s.Bytes(), &sol); err != nil {
+			return fmt.Errorf("failed to deserialize spark output line: %w", err)
+		}
+		key := fmt.Sprintf("%s/%s", sol.TS, sol.URL)
+		if _, ok := gifsByTSURL[key]; !ok {
+			g := &Gif{
+				Checksum: sol.Hash,
+				Uses:     []Use{},
+			}
+			gifsByTSURL[key] = g
+			gifsByHash[sol.Hash] = g
+		}
+	}
+	if s.Err() != nil {
+		return s.Err()
+	}
+
+	manf, err := os.Open(manifestPath)
+	if err != nil {
+		return err
+	}
+	defer manf.Close()
+
+	s = bufio.NewScanner(manf)
+	if err != nil {
+		return err
+	}
+	s.Buffer(buf, 24*1024*1024)
+
+	for s.Scan() {
+		var gif *Gif
+		line := s.Text()
+		fields := strings.Split(line, " ")
+		timestamp, u := splitWaybackURL(fields[0])
+		key := fmt.Sprintf("%s/%s", timestamp, u)
+		hash := fields[1]
+		if _, ok := gifsByTSURL[key]; ok {
+			gif = gifsByTSURL[key]
+		} else if _, ok := gifsByHash[hash]; ok {
+			gif = gifsByHash[hash]
+		} else {
+			log.Printf("FAILED TO FIND %s IN THE SPARK OUTPUT", key)
+			continue
+		}
+
+		width, err := strconv.ParseInt(fields[2], 10, 32)
+		if err != nil {
+			return fmt.Errorf("bad width '%s': %w", fields[2], err)
+		}
+		height, err := strconv.ParseInt(fields[3], 10, 32)
+		if err != nil {
+			return fmt.Errorf("bad height '%s': %w", fields[3], err)
+		}
+
+		gif.Width = int32(width)
+		gif.Height = int32(height)
+
+		use, err := parseUse(fields)
+		if err != nil {
+			return err
+		}
+		gif.Uses = append(gif.Uses, use)
+		gif.UseCount += 1
+
+	}
+	if s.Err() != nil {
+		return s.Err()
+	}
+
+	for _, gif := range gifsByTSURL {
+		bs, err := json.Marshal(gif)
+		if err != nil {
+			return fmt.Errorf("failed to serialize %s: %w", gif.Checksum, err)
+		}
+
+		fmt.Fprintf(outf, "%s\n", strings.ReplaceAll(string(bs), "\n", ""))
+	}
+
+	return nil
+}
+
+func extractSparkUnique() error {
+	// the spark output has gifs with duplicated hashes and different url+ts. this can only be explained by repeated runs with different urls for the same hash..right? i don't think so because the case under scrutiny -- the itchy scratchy gif -- shows up in gifs_jsonl's series (0000 and 0002) under different URLs with same hash. so this could happen for:
+
+	// - gif with two different hashes originally
+	// - we fetch and one ends up with the other original hash
+	// - we now have two urls mapping to the same hash.
+
+	// ultimately i have 639 gif uses in the manifest that aren't ending up in
+	// the golden manifest and half are itchy and scratchy. i propose manually
+	// adding those and evaluating the remaining 300.
+
+	// alternatively i can adapt this script to output a line per use and do no
+	// deduping. if we're creating golden manifest based on original manifest
+	// having dupes in the output here should be ok.
+
 	// for every line in spark output dataset
 	// keep track of what checksums  we have seen
 	// prepare jsonl output using spark output format
@@ -862,6 +981,8 @@ func main() {
 			vp = os.Args[2]
 		}
 		err = vecmerge(vp)
+	case "extractSparkUnique":
+		err = extractSparkUnique()
 	case "fixmanifest":
 		err = fixmanifest()
 	default:
