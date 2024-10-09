@@ -768,42 +768,56 @@ func vecmerge(vp string) error {
 func fixmanifest() error {
 	gifsByTSURL := map[string]*Gif{}
 	gifsByHash := map[string]*Gif{}
+
 	outf, err := os.Create("./data/golden_master.gifcities.jsonl")
 	if err != nil {
 		return err
 	}
 	defer outf.Close()
 
-	sparkf, err := os.Open("./data/unique_from_spark.jsonl")
+	entries, err := os.ReadDir(sparkOutputPath)
 	if err != nil {
 		return err
 	}
-	defer sparkf.Close()
 
-	s := bufio.NewScanner(sparkf)
-	if err != nil {
-		return err
-	}
 	buf := make([]byte, 0, 24*1024*1024)
-	s.Buffer(buf, 24*1024*1024)
-	for s.Scan() {
-		// TODO fill in gifs keyed by ts+url
-		sol := soLine{}
-		if err := json.Unmarshal(s.Bytes(), &sol); err != nil {
-			return fmt.Errorf("failed to deserialize spark output line: %w", err)
+
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".gz") {
+			continue
 		}
-		key := fmt.Sprintf("%s/%s", sol.TS, sol.URL)
-		if _, ok := gifsByTSURL[key]; !ok {
+		vf, err := os.Open(path.Join(sparkOutputPath, e.Name()))
+		if err != nil {
+			return err
+		}
+		defer vf.Close()
+		zr, err := gzip.NewReader(vf)
+		if err != nil {
+			return err
+		}
+		s := bufio.NewScanner(zr)
+		if err != nil {
+			return err
+		}
+		s.Buffer(buf, 24*1024*1024)
+		for s.Scan() {
+			sol := soLine{}
+			if err := json.Unmarshal(s.Bytes(), &sol); err != nil {
+				return fmt.Errorf("failed to deserialize spark output line from %s: %w", e.Name(), err)
+			}
+			sol.Gifb64 = ""
 			g := &Gif{
 				Checksum: sol.Hash,
 				Uses:     []Use{},
 			}
-			gifsByTSURL[key] = g
+			key := fmt.Sprintf("%s/%s", sol.TS, sol.URL)
+
 			gifsByHash[sol.Hash] = g
+			gifsByTSURL[key] = g
 		}
-	}
-	if s.Err() != nil {
-		return s.Err()
+		if s.Err() != nil {
+			return fmt.Errorf("spark output scanner failed: %w", s.Err())
+		}
 	}
 
 	manf, err := os.Open(manifestPath)
@@ -812,7 +826,7 @@ func fixmanifest() error {
 	}
 	defer manf.Close()
 
-	s = bufio.NewScanner(manf)
+	s := bufio.NewScanner(manf)
 	if err != nil {
 		return err
 	}
