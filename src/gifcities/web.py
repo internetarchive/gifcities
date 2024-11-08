@@ -22,7 +22,7 @@ from gifcities.config import settings
 
 MAX_PAGE_SIZE = 100
 DEFAULT_PAGE_SIZE = 25
-DEFAULT_MNSFW_THRESHOLD = 0.5
+DEFAULT_NSFW_FILTER = "MODERATE"
 
 tmpls = Jinja2Templates(directory='src/gifcities/templates')
 
@@ -102,14 +102,13 @@ async def search(request: Request) -> Response:
     o = request.query_params.get('offset', "0")
     ps = request.query_params.get('page_size', str(DEFAULT_PAGE_SIZE))
     flavor = request.query_params.get('flavor', SearchFlavor.LEXICAL)
-    mt = request.query_params.get('mnsfw', str(DEFAULT_MNSFW_THRESHOLD))
+    nsfw_filter = request.query_params.get('nsfw', DEFAULT_NSFW_FILTER)
     w = request.query_params.get('width', "0")
     h = request.query_params.get('height', "0")
     page_size = DEFAULT_PAGE_SIZE
     offset = 0
     width = 0
     height = 0
-    mnsfw_threshold = DEFAULT_MNSFW_THRESHOLD
     try:
         page_size = int(ps)
     except ValueError:
@@ -130,10 +129,16 @@ async def search(request: Request) -> Response:
     except ValueError:
         pass
 
-    try:
-        mnsfw_threshold = float(mt)
-    except ValueError as e:
-        pass
+    if nsfw_filter not in ["off", "moderate", "maximum"]:
+        return HTMLResponse(content="unknown nsfw filter level", status_code=400)
+
+    mnsfw_threshold = 0.5
+    if nsfw_filter == "off":
+        mnsfw_threshold = 1.0
+    elif nsfw_filter == "moderate":
+        mnsfw_threshold = 0.5
+    elif nsfw_filter == "maximum":
+        mnsfw_threshold = 0.1
 
     if page_size > MAX_PAGE_SIZE:
         page_size = MAX_PAGE_SIZE
@@ -274,7 +279,7 @@ async def search(request: Request) -> Response:
         "total_pages": int(resp['hits']['total']['value'] / page_size) + 1,
         "page_size": page_size,
         "flavor": flavor,
-        "mnsfw": mnsfw_threshold,
+        "nsfw": nsfw_filter,
     }
 
     if width > 0:
