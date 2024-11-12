@@ -8,12 +8,12 @@ help: ## Print info about all commands
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "    \033[01;32m%-20s\033[0m %s\n", $$1, $$2}'
 
 .venv:
-	python3 -mvenv .venv
-	.venv/bin/pip install uv==0.2.34
-	.venv/bin/uv pip install -e .[dev]
+	python3.12 -mvenv .venv
 
 .PHONY: dep
 dep: .venv ## Install dependencies using pip install -e to .venv
+	.venv/bin/pip install uv==0.5.1
+	.venv/bin/uv pip install -e .[dev]
 
 .PHONY: freeze
 freeze: dep
