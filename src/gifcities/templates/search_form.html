@@ -28,9 +28,9 @@
     <div>
       <input type="radio" id="nsfw1" name="nsfw" value="off" {% if nsfw == 'off' %}checked{%endif%}/>
       <label for="nsfw1">off</label>
-      <input type="radio" id="nsfw2" name="nsfw" value="moderate" {% if flavor == 'moderate' or not nsfw %}checked{%endif%}/>
+      <input type="radio" id="nsfw2" name="nsfw" value="moderate" {% if nsfw == 'moderate' or not nsfw %}checked{%endif%}/>
       <label for="nsfw2">moderate</label>
-      <input type="radio" id="nsfw3" name="nsfw" value="maximum" {% if flavor == 'maximum' %}checked{%endif%} />
+      <input type="radio" id="nsfw3" name="nsfw" value="maximum" {% if nsfw == 'maximum' %}checked{%endif%} />
       <label for="nsfw3">maximum</label>
     </div>
   </fieldset>
