@@ -1,5 +1,3 @@
-import asyncio
-import concurrent.futures
 import contextlib
 import json
 import logging
@@ -197,13 +195,9 @@ async def search(request: Request) -> Response:
                     }
                 }
     elif flavor == SearchFlavor.SEMANTIC:
-        loop = asyncio.get_running_loop()
-        vectorized = await loop.run_in_executor(request.state.pool,
-                                                vectorize_query,
-                                                request.state.query_embedder, q)
         query_args['knn'] = {
             "field": "vecs.vector",
-            "query_vector": vectorized,
+            "query_vector": vectorize_query(request.state.query_embedder, q),
             # number of top results to pull from each shard's results (though
             # we have only one shard)
             "k": 1000,
@@ -225,10 +219,6 @@ async def search(request: Request) -> Response:
             }
         }
     elif flavor == SearchFlavor.HYBRID:
-        loop = asyncio.get_running_loop()
-        vectorized = await loop.run_in_executor(request.state.pool,
-                                                vectorize_query,
-                                                request.state.query_embedder, q)
         query_args['query'] = {
             "nested": {
             "path": "uses",
@@ -242,7 +232,7 @@ async def search(request: Request) -> Response:
         }
         query_args['knn'] = {
             "field": "vecs.vector",
-            "query_vector": vectorized,
+            "query_vector": vectorize_query(request.state.query_embedder, q),
             # number of top results to pull from each shard's results (though
             # we have only one shard)
             "k": 1000,
@@ -369,15 +359,10 @@ async def lifespan(app: Starlette) -> AsyncIterator[State]:
         request_timeout=settings.ELASTICSEARCH_TIMEOUT,
         )
 
-    pool = concurrent.futures.ProcessPoolExecutor()
-
     yield {'logger': logging.getLogger("gifcities"),
            'es_client': es_client,
-           'pool': pool,
            'query_embedder': QueryEmbedder(
         settings.EMBEDDING_MODEL, settings.EMBEDDING_PRETRAIN)}
-
-    pool.shutdown()
 
 app = Starlette(debug=settings.DEBUG, lifespan=lifespan, routes=[
     Route('/', index),
