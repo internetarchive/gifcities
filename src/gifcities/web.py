@@ -138,7 +138,7 @@ async def search(request: Request) -> Response:
     elif nsfw_filter == "moderate":
         mnsfw_threshold = 0.5
     elif nsfw_filter == "maximum":
-        mnsfw_threshold = 0.1
+        mnsfw_threshold = 0.05
 
     if page_size > MAX_PAGE_SIZE:
         page_size = MAX_PAGE_SIZE
