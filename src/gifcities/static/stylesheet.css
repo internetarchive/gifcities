@@ -52,8 +52,12 @@ h2 {
 input[type=search] {
   -webkit-appearance: none;
   padding-left: 0.5em;
-  font-size:225%;
+  font-size:150%;
   height:66px;
+}
+
+input[name=width], input[name=height] {
+  width: 60px;
 }
 
 form {

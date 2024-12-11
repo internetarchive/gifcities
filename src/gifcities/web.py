@@ -130,7 +130,7 @@ async def search(request: Request) -> Response:
         pass
 
     if nsfw_filter not in ["off", "moderate", "maximum"]:
-        return HTMLResponse(content="unknown nsfw filter level", status_code=400)
+        nsfw_filter = "maximum"
 
     mnsfw_threshold = 0.5
     if nsfw_filter == "off":
